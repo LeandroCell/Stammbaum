@@ -46,7 +46,7 @@ export const people: Person[] = [
     birthDate: "1958-09-21",
     birthPlace: "München",
     gender: "male",
-    biography: "Aufgewachsen in München, später Ingenieur.",
+    biography: "Aufgewachsen in Bayern, später Ingenieur.",
   },
   {
     id: "mother",
