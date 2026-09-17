@@ -40,6 +40,10 @@ export function TreeCanvas({
       .zoom<SVGSVGElement, unknown>()
       .scaleExtent([0.1, 3])
       .extent([[0, 0], [window.innerWidth, window.innerHeight]])
+      .filter((event: MouseEvent | WheelEvent) => {
+        const target = event.target as Element;
+        return (!event.ctrlKey || event.type === "wheel") && !(event as MouseEvent).button && !target.closest("button");
+      })
       .on("zoom", (event: d3.D3ZoomEvent<SVGSVGElement, unknown>) => {
         group.attr("transform", event.transform.toString());
       });
