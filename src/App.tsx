@@ -15,6 +15,7 @@ import { classicLayout } from "./layout/classicLayout";
 import { radialLayout } from "./layout/radialLayout";
 import { networkLayout } from "./layout/networkLayout";
 import type { LayoutFn } from "./layout/layout.types";
+import { exportGedcom } from "./data/gedcomExport";
 
 const LAYOUTS: Record<ViewMode, LayoutFn> = {
   classic: classicLayout,
@@ -66,6 +67,19 @@ function App() {
 
   if (needsLogin) {
     return <LoginScreen onLogin={login} />;
+  }
+
+  function handleGedcomExport() {
+    const text = exportGedcom(people, families);
+    const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `stammbaum-${new Date().toISOString().slice(0, 10)}.ged`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   }
 
   async function handleGedcomFileChange(event: ChangeEvent<HTMLInputElement>) {
@@ -141,6 +155,13 @@ function App() {
             className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
           >
             {isImporting ? "Importiere…" : "GEDCOM importieren"}
+          </button>
+          <button
+            type="button"
+            onClick={handleGedcomExport}
+            className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          >
+            GEDCOM exportieren
           </button>
           <input
             ref={fileInputRef}

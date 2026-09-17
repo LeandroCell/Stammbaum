@@ -122,4 +122,28 @@ describe("App", () => {
       expect(screen.queryByText(/Keine Personen/)).not.toBeInTheDocument();
     });
   });
+
+  describe("GEDCOM-Export", () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+      vi.unstubAllGlobals();
+    });
+
+    it("builds a GEDCOM blob and triggers a file download", async () => {
+      const objectUrl = "blob:mock-url";
+      vi.stubGlobal("URL", {
+        ...URL,
+        createObjectURL: vi.fn(() => objectUrl),
+        revokeObjectURL: vi.fn(),
+      });
+      const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+
+      render(<App />);
+      await userEvent.click(screen.getByText("GEDCOM exportieren"));
+
+      expect(URL.createObjectURL).toHaveBeenCalledWith(expect.any(Blob));
+      expect(clickSpy).toHaveBeenCalled();
+      expect(URL.revokeObjectURL).toHaveBeenCalledWith(objectUrl);
+    });
+  });
 });
