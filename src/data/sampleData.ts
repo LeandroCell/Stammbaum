@@ -8,6 +8,7 @@ export const people: Person[] = [
     birthDate: "1930-03-12",
     deathDate: "2005-11-02",
     birthPlace: "München",
+    deathPlace: "München",
     gender: "male",
   },
   {
@@ -18,6 +19,7 @@ export const people: Person[] = [
     birthDate: "1932-07-04",
     deathDate: "2010-01-20",
     birthPlace: "Augsburg",
+    deathPlace: "München",
     gender: "female",
   },
   {
@@ -27,6 +29,7 @@ export const people: Person[] = [
     birthDate: "1928-05-09",
     deathDate: "1999-09-15",
     birthPlace: "Köln",
+    deathPlace: "Köln",
     gender: "male",
   },
   {
@@ -37,6 +40,7 @@ export const people: Person[] = [
     birthDate: "1931-02-27",
     deathDate: "2012-06-30",
     birthPlace: "Bonn",
+    deathPlace: "Bonn",
     gender: "female",
   },
   {
