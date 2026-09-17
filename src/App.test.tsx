@@ -20,7 +20,7 @@ describe("App", () => {
     render(<App />);
     await userEvent.click(screen.getByText("Thomas Berger"));
     expect(screen.getByText("Zentrieren")).toBeInTheDocument();
-    expect(screen.getByText(/München/)).toBeInTheDocument();
+    expect(screen.getByText("Geburtsort: München")).toBeInTheDocument();
   });
 
   it("re-centers the tree on the selected person", async () => {
