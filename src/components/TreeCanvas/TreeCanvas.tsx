@@ -39,6 +39,7 @@ export function TreeCanvas({
     const zoomBehavior = d3
       .zoom<SVGSVGElement, unknown>()
       .scaleExtent([0.1, 3])
+      .extent([[0, 0], [window.innerWidth, window.innerHeight]])
       .on("zoom", (event: d3.D3ZoomEvent<SVGSVGElement, unknown>) => {
         group.attr("transform", event.transform.toString());
       });
