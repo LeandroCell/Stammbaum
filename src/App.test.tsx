@@ -30,4 +30,14 @@ describe("App", () => {
     expect(screen.getByText("Julia Berger")).toBeInTheDocument();
     expect(screen.queryByText("Zentrieren")).not.toBeInTheDocument();
   });
+
+  it("switches to the network view via the three-dot menu, revealing siblings the classic view hides", async () => {
+    render(<App />);
+    expect(screen.queryByText("Julia Berger")).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByLabelText("Darstellung wählen"));
+    await userEvent.click(screen.getByText(/Netzwerkansicht/));
+
+    expect(screen.getByText("Julia Berger")).toBeInTheDocument();
+  });
 });

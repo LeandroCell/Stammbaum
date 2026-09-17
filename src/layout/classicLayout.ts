@@ -1,51 +1,15 @@
-import type { Person, Family } from "../data/types";
 import type { LayoutEdge, LayoutFn, PositionedNode } from "./layout.types";
+import { buildFamilyMaps, orderParentsFatherFirst, type FamilyMaps } from "./familyGraph";
 
 const GENERATION_HEIGHT = 160;
 const NODE_SPACING = 220;
 const MAX_ANCESTOR_GENERATIONS = 5;
 const MAX_DESCENDANT_GENERATIONS = 5;
 
-interface Maps {
-  peopleById: Map<string, Person>;
-  familyByChildId: Map<string, Family>;
-  familiesByPartnerId: Map<string, Family[]>;
-}
-
-// ponytail: assumes a person is a child in at most one family (no known
-// double-adoption cases in the sample data). Extend familyByChildId to a
-// Map<string, Family[]> if that ever needs to be modeled.
-function buildMaps(people: Person[], families: Family[]): Maps {
-  const peopleById = new Map(people.map((p) => [p.id, p]));
-  const familyByChildId = new Map<string, Family>();
-  const familiesByPartnerId = new Map<string, Family[]>();
-
-  for (const family of families) {
-    for (const childId of family.childrenIds) {
-      familyByChildId.set(childId, family);
-    }
-    for (const partnerId of family.partnerIds) {
-      const existing = familiesByPartnerId.get(partnerId) ?? [];
-      existing.push(family);
-      familiesByPartnerId.set(partnerId, existing);
-    }
-  }
-
-  return { peopleById, familyByChildId, familiesByPartnerId };
-}
-
-function orderParentsFatherFirst(partnerIds: string[], peopleById: Map<string, Person>): string[] {
-  const known = partnerIds.filter((id) => peopleById.has(id));
-  const father = known.find((id) => peopleById.get(id)?.gender === "male");
-  const mother = known.find((id) => peopleById.get(id)?.gender === "female");
-  const rest = known.filter((id) => id !== father && id !== mother);
-  return [father, mother, ...rest].filter((id): id is string => Boolean(id));
-}
-
 function layoutAncestors(
   personId: string,
   generation: number,
-  maps: Maps,
+  maps: FamilyMaps,
   nextLeafX: { value: number },
   nodes: Map<string, PositionedNode>,
   edges: LayoutEdge[]
@@ -100,7 +64,7 @@ function layoutDescendants(
   personId: string,
   generation: number,
   centerX: number,
-  maps: Maps,
+  maps: FamilyMaps,
   nextLeafX: { value: number },
   nodes: Map<string, PositionedNode>,
   edges: LayoutEdge[]
@@ -131,7 +95,7 @@ function layoutDescendants(
 }
 
 export const classicLayout: LayoutFn = (people, families, centerPersonId) => {
-  const maps = buildMaps(people, families);
+  const maps = buildFamilyMaps(people, families);
   const nodes = new Map<string, PositionedNode>();
   const edges: LayoutEdge[] = [];
 
