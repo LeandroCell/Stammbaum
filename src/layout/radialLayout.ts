@@ -3,7 +3,8 @@ import { buildFamilyMaps, orderParentsFatherFirst, type FamilyMaps } from "../da
 
 const RING_RADIUS_STEP = 180;
 const PARTNER_SPACING = 200;
-const SIBLING_OFFSET = 90;
+const SIBLING_ROW_SPACING = 200;
+const SIBLING_ROW_GAP = 140;
 const MAX_GENERATIONS = 5;
 
 // ponytail: pure ancestor fan chart, per spec section 4 — no descendants,
@@ -54,37 +55,46 @@ function layoutRadialAncestors(
 // uncles, ...), so anyone connected to the tree is visible somewhere, not
 // only the people who happen to be someone's direct parent.
 //
-// ponytail: siblings are leaves, not expanded further. Offset tangentially
-// (perpendicular to the radius vector) so they fan out sideways along the
-// same ring as their sibling; the center's own siblings (radius 0, no
-// tangent direction) go on a fixed diagonal clear of the partner slot,
-// which sits straight down at angle 180°.
+// ponytail: siblings are leaves, not expanded further. Rather than fanning
+// each sibling out tangentially from its own ancestor's position on the
+// ring — which could still collide with a DIFFERENT ancestor's siblings
+// sharing that same ring, or with the ring itself — every addition across
+// the whole tree goes into one dedicated row below everything else,
+// evenly spaced. That sacrifices a bit of "everything is a circular fan"
+// purity for a layout that's collision-free regardless of how many
+// siblings exist at any generation.
 function addAncestorSiblings(nodes: Map<string, PositionedNode>, edges: LayoutEdge[], maps: FamilyMaps): void {
   const spineSnapshot = Array.from(nodes.values()).filter((n) => n.generation <= 0);
+  const additions: { siblingId: string; generation: number; partnerIds: string[] }[] = [];
+
   for (const node of spineSnapshot) {
     const parentFamily = maps.familyByChildId.get(node.personId);
     if (!parentFamily) continue;
-    const siblingIds = parentFamily.childrenIds.filter((id) => id !== node.personId && !nodes.has(id));
-    const radius = Math.sqrt(node.x * node.x + node.y * node.y);
-
-    siblingIds.forEach((siblingId, index) => {
-      const offset = SIBLING_OFFSET * (index + 1);
-      const [x, y] =
-        radius === 0
-          ? [-offset, offset]
-          : [node.x + (-node.y / radius) * offset, node.y + (node.x / radius) * offset];
-
-      nodes.set(siblingId, { personId: siblingId, x, y, generation: node.generation });
-      for (const parentId of parentFamily.partnerIds) {
-        edges.push({
-          id: `${parentId}->${siblingId}`,
-          fromPersonId: parentId,
-          toPersonId: siblingId,
-          kind: "parent-child",
-        });
-      }
-    });
+    const siblingIds = parentFamily.childrenIds.filter(
+      (id) => id !== node.personId && !nodes.has(id) && !additions.some((a) => a.siblingId === id)
+    );
+    for (const siblingId of siblingIds) {
+      additions.push({ siblingId, generation: node.generation, partnerIds: parentFamily.partnerIds });
+    }
   }
+
+  if (additions.length === 0) return;
+
+  const maxY = Math.max(0, ...Array.from(nodes.values()).map((n) => n.y));
+  const rowY = maxY + SIBLING_ROW_GAP;
+  const startX = -((additions.length - 1) * SIBLING_ROW_SPACING) / 2;
+
+  additions.forEach(({ siblingId, generation, partnerIds }, index) => {
+    nodes.set(siblingId, { personId: siblingId, x: startX + index * SIBLING_ROW_SPACING, y: rowY, generation });
+    for (const parentId of partnerIds) {
+      edges.push({
+        id: `${parentId}->${siblingId}`,
+        fromPersonId: parentId,
+        toPersonId: siblingId,
+        kind: "parent-child",
+      });
+    }
+  });
 }
 
 export const radialLayout: LayoutFn = (people, families, centerPersonId) => {

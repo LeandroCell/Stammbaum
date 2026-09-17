@@ -70,4 +70,34 @@ describe("classicLayout", () => {
     expect(edgeSet.has(edgeKey("father", "sibling1"))).toBe(true);
     expect(edgeSet.has(edgeKey("mother", "sibling1"))).toBe(true);
   });
+
+  it("places many siblings across different branches without any overlapping position", () => {
+    // Several generations each with multiple extra children — a naive
+    // per-node offset (placing each branch's siblings relative only to
+    // that branch's own x) would collide here, since father's and
+    // mother's own extra siblings, plus the grandparents', all compete
+    // for the same horizontal space.
+    const extraPeople = [
+      ...people,
+      { id: "auntUncle1", firstName: "Aunt", lastName: "One" },
+      { id: "auntUncle2", firstName: "Aunt", lastName: "Two" },
+      { id: "greatAunt1", firstName: "Great", lastName: "One" },
+      { id: "greatAunt2", firstName: "Great", lastName: "Two" },
+      { id: "sibling2", firstName: "Sib", lastName: "Two" },
+      { id: "sibling3", firstName: "Sib", lastName: "Three" },
+    ];
+    const extraFamilies = families.map((f) =>
+      f.id === "fam-parents"
+        ? { ...f, childrenIds: [...f.childrenIds, "sibling2", "sibling3"] }
+        : f.id === "fam-paternal"
+          ? { ...f, childrenIds: [...f.childrenIds, "auntUncle1", "auntUncle2"] }
+          : f.id === "fam-maternal"
+            ? { ...f, childrenIds: [...f.childrenIds, "greatAunt1", "greatAunt2"] }
+            : f
+    );
+
+    const result = classicLayout(extraPeople, extraFamilies, "me");
+    const positions = result.nodes.map((n) => `${n.x.toFixed(1)},${n.y.toFixed(1)}`);
+    expect(new Set(positions).size).toBe(positions.length);
+  });
 });

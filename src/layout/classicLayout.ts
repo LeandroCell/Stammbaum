@@ -62,27 +62,38 @@ function layoutAncestors(
 // they happen to be someone's direct parent.
 //
 // ponytail: siblings added here are leaves — their own descendants aren't
-// expanded (center on one of them to see their line). Offset to the left of
-// their spine sibling to avoid the center's partner slot, which sits to the
-// right; some overlap risk remains for deep generations with many siblings,
-// same accepted-ceiling tradeoff as the descendant spacing above.
+// expanded (center on one of them to see their line). Placement is
+// collision-free by construction: `leftmostXByGeneration` tracks the
+// leftmost x used so far at each generation across the WHOLE tree (not
+// just one spine node's own siblings), and every new addition — from any
+// spine node, in any order — is placed strictly further left than
+// everything already at that generation, including the center's partner
+// and previously-added siblings from a different branch.
 function addAncestorSiblings(
   nodes: Map<string, PositionedNode>,
   edges: LayoutEdge[],
   maps: FamilyMaps
 ): void {
   const spineSnapshot = Array.from(nodes.values()).filter((n) => n.generation <= 0);
+
+  const leftmostXByGeneration = new Map<number, number>();
+  for (const node of nodes.values()) {
+    const current = leftmostXByGeneration.get(node.generation);
+    if (current === undefined || node.x < current) {
+      leftmostXByGeneration.set(node.generation, node.x);
+    }
+  }
+
   for (const node of spineSnapshot) {
     const parentFamily = maps.familyByChildId.get(node.personId);
     if (!parentFamily) continue;
     const siblingIds = parentFamily.childrenIds.filter((id) => id !== node.personId && !nodes.has(id));
-    siblingIds.forEach((siblingId, index) => {
-      nodes.set(siblingId, {
-        personId: siblingId,
-        x: node.x - NODE_SPACING * (index + 1),
-        y: node.y,
-        generation: node.generation,
-      });
+    siblingIds.forEach((siblingId) => {
+      const leftmost = leftmostXByGeneration.get(node.generation) ?? node.x;
+      const x = leftmost - NODE_SPACING;
+      leftmostXByGeneration.set(node.generation, x);
+
+      nodes.set(siblingId, { personId: siblingId, x, y: node.y, generation: node.generation });
       for (const parentId of parentFamily.partnerIds) {
         edges.push({
           id: `${parentId}->${siblingId}`,

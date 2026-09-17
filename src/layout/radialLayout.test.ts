@@ -38,12 +38,34 @@ describe("radialLayout", () => {
     expect([...nodeById.keys()].sort()).toEqual(expectedIds.sort());
   });
 
-  it("places the center's sibling away from both the ancestor fan and the partner slot", () => {
+  it("places the center's sibling below everything else, clear of the partner slot", () => {
     const sibling = nodeById.get("sibling1")!;
     const partner = nodeById.get("partner")!;
     expect(sibling.generation).toBe(0);
-    expect(sibling.x).not.toBe(partner.x);
-    expect(sibling.y).not.toBe(partner.y);
+    expect(sibling.y).toBeGreaterThan(partner.y);
+  });
+
+  it("places multiple siblings from different branches without any overlapping position", () => {
+    // Simulate a second family with more siblings-of-ancestors than the
+    // sample data has, so a naive per-node offset would collide.
+    const extraFamilies = [
+      ...families,
+      { id: "fam-extra", partnerIds: ["father", "mother"], childrenIds: ["me", "sibling1", "extra1", "extra2"] },
+      { id: "fam-paternal-extra", partnerIds: ["pgf", "pgm"], childrenIds: ["father", "extra3"] },
+    ];
+    const extraPeople = [
+      ...people,
+      { id: "extra1", firstName: "Extra", lastName: "One" },
+      { id: "extra2", firstName: "Extra", lastName: "Two" },
+      { id: "extra3", firstName: "Extra", lastName: "Three" },
+    ];
+    // Replace fam-parents (which also lists me/sibling1) so childrenIds
+    // for that partner pair aren't declared twice across two families.
+    const dedupedFamilies = extraFamilies.filter((f) => f.id !== "fam-parents");
+    const extraResult = radialLayout(extraPeople, dedupedFamilies, "me");
+
+    const positions = extraResult.nodes.map((n) => `${n.x.toFixed(1)},${n.y.toFixed(1)}`);
+    expect(new Set(positions).size).toBe(positions.length);
   });
 
   it("connects every ancestor relationship with an edge", () => {
