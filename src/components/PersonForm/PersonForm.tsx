@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import type { Family, Gender, Person } from "../../data/types";
 import { orderParentsFatherFirst } from "../../data/familyGraph";
+import { PersonPicker } from "../PersonPicker/PersonPicker";
 
 export interface PersonFormValues {
   firstName: string;
@@ -177,51 +178,29 @@ export function PersonForm({ mode, people, initialValues, excludePersonId, onSub
             />
           </label>
 
-          <label className="text-sm text-slate-700">
-            Vater
-            <select
-              value={values.fatherId}
-              onChange={(e) => update("fatherId", e.target.value)}
-              className="mt-1 w-full rounded border border-slate-300 px-2 py-1"
-            >
-              <option value="">— keiner —</option>
-              {selectablePeople.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.firstName} {p.lastName}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="text-sm text-slate-700">
-            Mutter
-            <select
-              value={values.motherId}
-              onChange={(e) => update("motherId", e.target.value)}
-              className="mt-1 w-full rounded border border-slate-300 px-2 py-1"
-            >
-              <option value="">— keine —</option>
-              {selectablePeople.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.firstName} {p.lastName}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="col-span-2 text-sm text-slate-700">
-            Partner
-            <select
+          <PersonPicker
+            label="Vater"
+            people={selectablePeople}
+            value={values.fatherId}
+            onChange={(id) => update("fatherId", id)}
+            clearLabel="— keiner —"
+          />
+          <PersonPicker
+            label="Mutter"
+            people={selectablePeople}
+            value={values.motherId}
+            onChange={(id) => update("motherId", id)}
+            clearLabel="— keine —"
+          />
+          <div className="col-span-2">
+            <PersonPicker
+              label="Partner"
+              people={selectablePeople}
               value={values.partnerId}
-              onChange={(e) => update("partnerId", e.target.value)}
-              className="mt-1 w-full rounded border border-slate-300 px-2 py-1"
-            >
-              <option value="">— keiner —</option>
-              {selectablePeople.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.firstName} {p.lastName}
-                </option>
-              ))}
-            </select>
-          </label>
+              onChange={(id) => update("partnerId", id)}
+              clearLabel="— keiner —"
+            />
+          </div>
         </div>
 
         <div className="mt-6 flex justify-end gap-2">

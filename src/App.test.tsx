@@ -54,7 +54,8 @@ describe("App", () => {
 
     await userEvent.type(screen.getByLabelText(/Vorname/), "Nina");
     await userEvent.type(screen.getByLabelText(/Nachname/), "Berger");
-    await userEvent.selectOptions(screen.getByLabelText("Vater"), "me");
+    await userEvent.type(screen.getByLabelText("Vater"), "Max");
+    await userEvent.click(screen.getByText("Max Berger (1988)"));
     await userEvent.click(screen.getByText("Speichern"));
 
     expect(screen.queryByRole("heading", { name: "Neue Person" })).not.toBeInTheDocument();

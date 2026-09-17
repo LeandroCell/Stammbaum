@@ -35,7 +35,7 @@ describe("PersonForm", () => {
     expect(screen.getByLabelText(/Nachname/)).toHaveValue("Berger");
   });
 
-  it("excludes the person being edited from the father/mother/partner dropdowns", () => {
+  it("excludes the person being edited from the father/mother/partner pickers", async () => {
     const me = people.find((p) => p.id === "me")!;
     render(
       <PersonForm
@@ -47,8 +47,8 @@ describe("PersonForm", () => {
         onCancel={() => {}}
       />
     );
-    const fatherSelect = screen.getByLabelText("Vater");
-    expect(fatherSelect).not.toHaveTextContent("Max Berger");
+    await userEvent.click(screen.getByLabelText("Vater"));
+    expect(screen.queryByText(/Max Berger/)).not.toBeInTheDocument();
   });
 
   it("calls onSubmit with the entered values", async () => {
