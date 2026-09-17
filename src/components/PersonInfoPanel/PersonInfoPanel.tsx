@@ -49,12 +49,14 @@ export function PersonInfoPanel({ person, onClose, onCenter }: PersonInfoPanelPr
             {person.deathPlace && <p>Sterbeort: {person.deathPlace}</p>}
           </section>
 
-          {person.biography && (
-            <section className="mt-6 text-sm text-slate-700">
-              <h3 className="font-medium text-slate-900">Biografie</h3>
+          <section className="mt-6 text-sm text-slate-700">
+            <h3 className="font-medium text-slate-900">Biografie</h3>
+            {person.biography ? (
               <p className="mt-1 whitespace-pre-line">{person.biography}</p>
-            </section>
-          )}
+            ) : (
+              <p className="mt-1 text-slate-400">Keine Biografie hinterlegt.</p>
+            )}
+          </section>
 
           <section className="mt-6 text-sm text-slate-700">
             <h3 className="font-medium text-slate-900">Bilder</h3>

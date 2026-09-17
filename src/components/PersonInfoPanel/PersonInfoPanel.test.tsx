@@ -31,4 +31,13 @@ describe("PersonInfoPanel", () => {
     render(<PersonInfoPanel person={null} onClose={() => {}} onCenter={() => {}} />);
     expect(screen.queryByText("Zentrieren")).not.toBeInTheDocument();
   });
+
+  it("shows fallback text for a person with no biography, photos, sources, or documents", () => {
+    const mother = people.find((p) => p.id === "mother")!;
+    render(<PersonInfoPanel person={mother} onClose={() => {}} onCenter={() => {}} />);
+    expect(screen.getByText("Keine Biografie hinterlegt.")).toBeInTheDocument();
+    expect(screen.getByText("Keine Bilder hinterlegt.")).toBeInTheDocument();
+    expect(screen.getByText("Keine Quellen hinterlegt.")).toBeInTheDocument();
+    expect(screen.getByText("Keine Dokumente hinterlegt.")).toBeInTheDocument();
+  });
 });
