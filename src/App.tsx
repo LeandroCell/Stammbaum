@@ -1,9 +1,10 @@
-import { useRef, useState, type ChangeEvent } from "react";
+import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { useFamilyData } from "./data/useFamilyData";
 import { useTreeStore, type ViewMode } from "./state/useTreeStore";
 import { TreeCanvas } from "./components/TreeCanvas/TreeCanvas";
 import { PersonInfoPanel } from "./components/PersonInfoPanel/PersonInfoPanel";
 import { ViewMenu } from "./components/ViewMenu/ViewMenu";
+import { LoginScreen } from "./components/LoginScreen/LoginScreen";
 import {
   PersonForm,
   emptyPersonFormValues,
@@ -31,6 +32,11 @@ function toOptionalField(value: string): string | undefined {
 function App() {
   const people = useFamilyData((s) => s.people);
   const families = useFamilyData((s) => s.families);
+  const needsLogin = useFamilyData((s) => s.needsLogin);
+  const isOffline = useFamilyData((s) => s.isOffline);
+  const loadTree = useFamilyData((s) => s.loadTree);
+  const login = useFamilyData((s) => s.login);
+  const logout = useFamilyData((s) => s.logout);
   const addPerson = useFamilyData((s) => s.addPerson);
   const updatePerson = useFamilyData((s) => s.updatePerson);
   const deletePerson = useFamilyData((s) => s.deletePerson);
@@ -52,7 +58,15 @@ function App() {
   const [formState, setFormState] = useState<FormState | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  useEffect(() => {
+    loadTree();
+  }, [loadTree]);
+
   const selectedPerson = people.find((p) => p.id === selectedPersonId) ?? null;
+
+  if (needsLogin) {
+    return <LoginScreen onLogin={login} />;
+  }
 
   async function handleGedcomFileChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -67,7 +81,7 @@ function App() {
     }
   }
 
-  function handleFormSubmit(values: PersonFormValues) {
+  async function handleFormSubmit(values: PersonFormValues) {
     const personData = {
       firstName: values.firstName.trim(),
       lastName: values.lastName.trim(),
@@ -80,28 +94,28 @@ function App() {
       biography: toOptionalField(values.biography),
     };
 
-    const personId = formState?.mode === "edit" ? formState.personId : addPerson(personData);
+    const personId = formState?.mode === "edit" ? formState.personId : await addPerson(personData);
     if (formState?.mode === "edit") {
-      updatePerson(personId, personData);
+      await updatePerson(personId, personData);
     }
 
-    setParents(personId, values.fatherId || null, values.motherId || null);
+    await setParents(personId, values.fatherId || null, values.motherId || null);
 
     const existingPartnerFamily = families.find((f) => f.partnerIds.includes(personId));
     const existingPartnerId = existingPartnerFamily?.partnerIds.find((id) => id !== personId);
     if (existingPartnerId && existingPartnerId !== values.partnerId) {
-      removePartner(personId, existingPartnerId);
+      await removePartner(personId, existingPartnerId);
     }
     if (values.partnerId && values.partnerId !== existingPartnerId) {
-      addPartner(personId, values.partnerId);
+      await addPartner(personId, values.partnerId);
     }
 
     setFormState(null);
   }
 
-  function handleDelete(personId: string) {
+  async function handleDelete(personId: string) {
     const fallbackPerson = people.find((p) => p.id !== personId);
-    deletePerson(personId);
+    await deletePerson(personId);
     selectPerson(null);
     if (centerPersonId === personId) {
       setCenterPerson(fallbackPerson ? fallbackPerson.id : "");
@@ -136,8 +150,23 @@ function App() {
             className="hidden"
           />
           <ViewMenu activeView={activeView} onChangeView={setActiveView} />
+          {!isOffline && (
+            <button
+              type="button"
+              onClick={() => logout()}
+              className="rounded-md px-3 py-2 text-sm font-medium text-slate-500 hover:bg-slate-100"
+            >
+              Abmelden
+            </button>
+          )}
         </div>
       </header>
+
+      {isOffline && (
+        <div className="absolute left-1/2 top-16 z-10 -translate-x-1/2 rounded-md bg-amber-50 px-4 py-2 text-sm text-amber-700 shadow">
+          Kein Server verbunden — Änderungen werden nur lokal in diesem Tab gespeichert.
+        </div>
+      )}
 
       {importError && (
         <div className="absolute left-1/2 top-16 z-10 flex -translate-x-1/2 items-center gap-3 rounded-md bg-red-50 px-4 py-2 text-sm text-red-700 shadow">

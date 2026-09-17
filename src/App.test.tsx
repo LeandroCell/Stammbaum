@@ -14,9 +14,13 @@ describe("App", () => {
     useFamilyData.setState(initialFamilyState, true);
   });
 
-  it("renders the app title", () => {
+  it("renders the app title", async () => {
     render(<App />);
     expect(screen.getByText("Stammbaum")).toBeInTheDocument();
+    // Let the mount-time loadTree() (which falls back to sample data
+    // against the mocked, rejecting fetch) settle before the test ends, so
+    // its state update isn't left dangling outside of act().
+    await screen.findByText(/Kein Server verbunden/);
   });
 
   it("opens the info panel with the clicked person's details", async () => {
