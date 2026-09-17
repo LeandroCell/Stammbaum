@@ -39,8 +39,35 @@ describe("classicLayout", () => {
     expect(edgeSet.has(edgeKey("me", "child1"))).toBe(true);
   });
 
-  it("includes the ancestor chain, the partner, and the descendants of the center person", () => {
-    const expectedIds = ["me", "father", "mother", "pgf", "pgm", "mgf", "mgm", "partner", "child1"];
+  it("includes the ancestor chain, their siblings, the partner, and the descendants of the center person", () => {
+    const expectedIds = [
+      "me",
+      "sibling1",
+      "father",
+      "mother",
+      "pgf",
+      "pgm",
+      "mgf",
+      "mgm",
+      "partner",
+      "child1",
+    ];
     expect([...nodeById.keys()].sort()).toEqual(expectedIds.sort());
+  });
+
+  it("places the center person's sibling at the same generation, without overlapping the partner", () => {
+    const me = nodeById.get("me")!;
+    const sibling = nodeById.get("sibling1")!;
+    const partner = nodeById.get("partner")!;
+    expect(sibling.generation).toBe(0);
+    expect(sibling.x).not.toBe(partner.x);
+    expect(sibling.x).toBeLessThan(me.x);
+  });
+
+  it("connects the sibling to both shared parents", () => {
+    const edgeKey = (a: string, b: string) => `${a}->${b}`;
+    const edgeSet = new Set(result.edges.map((e) => edgeKey(e.fromPersonId, e.toPersonId)));
+    expect(edgeSet.has(edgeKey("father", "sibling1"))).toBe(true);
+    expect(edgeSet.has(edgeKey("mother", "sibling1"))).toBe(true);
   });
 });

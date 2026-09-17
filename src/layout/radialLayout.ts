@@ -3,6 +3,7 @@ import { buildFamilyMaps, orderParentsFatherFirst, type FamilyMaps } from "../da
 
 const RING_RADIUS_STEP = 180;
 const PARTNER_SPACING = 200;
+const SIBLING_OFFSET = 90;
 const MAX_GENERATIONS = 5;
 
 // ponytail: pure ancestor fan chart, per spec section 4 — no descendants,
@@ -48,6 +49,44 @@ function layoutRadialAncestors(
   }
 }
 
+// Same widening as classicLayout's addAncestorSiblings: shows the center's
+// own siblings and every ancestor's siblings (aunts/uncles, great-aunts/
+// uncles, ...), so anyone connected to the tree is visible somewhere, not
+// only the people who happen to be someone's direct parent.
+//
+// ponytail: siblings are leaves, not expanded further. Offset tangentially
+// (perpendicular to the radius vector) so they fan out sideways along the
+// same ring as their sibling; the center's own siblings (radius 0, no
+// tangent direction) go on a fixed diagonal clear of the partner slot,
+// which sits straight down at angle 180°.
+function addAncestorSiblings(nodes: Map<string, PositionedNode>, edges: LayoutEdge[], maps: FamilyMaps): void {
+  const spineSnapshot = Array.from(nodes.values()).filter((n) => n.generation <= 0);
+  for (const node of spineSnapshot) {
+    const parentFamily = maps.familyByChildId.get(node.personId);
+    if (!parentFamily) continue;
+    const siblingIds = parentFamily.childrenIds.filter((id) => id !== node.personId && !nodes.has(id));
+    const radius = Math.sqrt(node.x * node.x + node.y * node.y);
+
+    siblingIds.forEach((siblingId, index) => {
+      const offset = SIBLING_OFFSET * (index + 1);
+      const [x, y] =
+        radius === 0
+          ? [-offset, offset]
+          : [node.x + (-node.y / radius) * offset, node.y + (node.x / radius) * offset];
+
+      nodes.set(siblingId, { personId: siblingId, x, y, generation: node.generation });
+      for (const parentId of parentFamily.partnerIds) {
+        edges.push({
+          id: `${parentId}->${siblingId}`,
+          fromPersonId: parentId,
+          toPersonId: siblingId,
+          kind: "parent-child",
+        });
+      }
+    });
+  }
+}
+
 export const radialLayout: LayoutFn = (people, families, centerPersonId) => {
   const maps = buildFamilyMaps(people, families);
   const nodes = new Map<string, PositionedNode>();
@@ -75,6 +114,8 @@ export const radialLayout: LayoutFn = (people, families, centerPersonId) => {
       kind: "partner",
     });
   });
+
+  addAncestorSiblings(nodes, edges, maps);
 
   return { nodes: Array.from(nodes.values()), edges };
 };

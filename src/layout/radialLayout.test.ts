@@ -33,9 +33,17 @@ describe("radialLayout", () => {
     expect(paternalGrandfather.generation).toBe(-2);
   });
 
-  it("only includes ancestors and the partner, no descendants or siblings", () => {
-    const expectedIds = ["me", "father", "mother", "pgf", "pgm", "mgf", "mgm", "partner"];
+  it("includes ancestors, their siblings, and the partner, but no further descendants", () => {
+    const expectedIds = ["me", "sibling1", "father", "mother", "pgf", "pgm", "mgf", "mgm", "partner"];
     expect([...nodeById.keys()].sort()).toEqual(expectedIds.sort());
+  });
+
+  it("places the center's sibling away from both the ancestor fan and the partner slot", () => {
+    const sibling = nodeById.get("sibling1")!;
+    const partner = nodeById.get("partner")!;
+    expect(sibling.generation).toBe(0);
+    expect(sibling.x).not.toBe(partner.x);
+    expect(sibling.y).not.toBe(partner.y);
   });
 
   it("connects every ancestor relationship with an edge", () => {
@@ -44,5 +52,7 @@ describe("radialLayout", () => {
     expect(edgeSet.has(edgeKey("father", "me"))).toBe(true);
     expect(edgeSet.has(edgeKey("mother", "me"))).toBe(true);
     expect(edgeSet.has(edgeKey("pgf", "father"))).toBe(true);
+    expect(edgeSet.has(edgeKey("father", "sibling1"))).toBe(true);
+    expect(edgeSet.has(edgeKey("mother", "sibling1"))).toBe(true);
   });
 });

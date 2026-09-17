@@ -38,14 +38,14 @@ describe("App", () => {
     expect(screen.queryByText("Zentrieren")).not.toBeInTheDocument();
   });
 
-  it("switches to the network view via the three-dot menu, revealing siblings the classic view hides", async () => {
+  it("switches to the radial view via the three-dot menu, hiding descendants that the classic view shows", async () => {
     render(<App />);
-    expect(screen.queryByText("Julia Berger")).not.toBeInTheDocument();
+    expect(screen.getByText("Ben Berger")).toBeInTheDocument();
 
     await userEvent.click(screen.getByLabelText("Darstellung wählen"));
-    await userEvent.click(screen.getByText(/Netzwerkansicht/));
+    await userEvent.click(screen.getByText(/Runder Stammbaum/));
 
-    expect(screen.getByText("Julia Berger")).toBeInTheDocument();
+    expect(screen.queryByText("Ben Berger")).not.toBeInTheDocument();
   });
 
   it("adds a new person connected as a child of the center person", async () => {

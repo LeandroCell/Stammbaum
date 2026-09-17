@@ -56,10 +56,45 @@ function layoutAncestors(
   return x;
 }
 
-// ponytail: classic view shows only the center person's direct ancestor
-// line, their partner(s), and their own descendants — siblings/aunts/uncles
-// are intentionally out of scope here (per spec section 4). Centering on a
-// parent naturally reveals those relatives as that parent's own descendants.
+// Widens the ancestor spine to include siblings at every generation (the
+// center's own siblings, aunts/uncles, great-aunts/uncles, ...) so a person
+// is visible as soon as they're connected to the tree at all, not only when
+// they happen to be someone's direct parent.
+//
+// ponytail: siblings added here are leaves — their own descendants aren't
+// expanded (center on one of them to see their line). Offset to the left of
+// their spine sibling to avoid the center's partner slot, which sits to the
+// right; some overlap risk remains for deep generations with many siblings,
+// same accepted-ceiling tradeoff as the descendant spacing above.
+function addAncestorSiblings(
+  nodes: Map<string, PositionedNode>,
+  edges: LayoutEdge[],
+  maps: FamilyMaps
+): void {
+  const spineSnapshot = Array.from(nodes.values()).filter((n) => n.generation <= 0);
+  for (const node of spineSnapshot) {
+    const parentFamily = maps.familyByChildId.get(node.personId);
+    if (!parentFamily) continue;
+    const siblingIds = parentFamily.childrenIds.filter((id) => id !== node.personId && !nodes.has(id));
+    siblingIds.forEach((siblingId, index) => {
+      nodes.set(siblingId, {
+        personId: siblingId,
+        x: node.x - NODE_SPACING * (index + 1),
+        y: node.y,
+        generation: node.generation,
+      });
+      for (const parentId of parentFamily.partnerIds) {
+        edges.push({
+          id: `${parentId}->${siblingId}`,
+          fromPersonId: parentId,
+          toPersonId: siblingId,
+          kind: "parent-child",
+        });
+      }
+    });
+  }
+}
+
 function layoutDescendants(
   personId: string,
   generation: number,
@@ -123,6 +158,8 @@ export const classicLayout: LayoutFn = (people, families, centerPersonId) => {
 
   const descendantLeafX = { value: centerX - NODE_SPACING / 2 };
   layoutDescendants(centerPersonId, 0, centerX, maps, descendantLeafX, nodes, edges);
+
+  addAncestorSiblings(nodes, edges, maps);
 
   const offsetX = nodes.get(centerPersonId)?.x ?? 0;
   const recentered = Array.from(nodes.values()).map((n) => ({ ...n, x: n.x - offsetX }));
