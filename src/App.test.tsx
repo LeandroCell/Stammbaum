@@ -86,4 +86,35 @@ describe("App", () => {
       expect(screen.queryByText("Zentrieren")).not.toBeInTheDocument();
     });
   });
+
+  describe("GEDCOM-Import", () => {
+    it("replaces the tree with the imported people and centers on the first one", async () => {
+      render(<App />);
+      const file = new File(
+        ["0 HEAD\n0 @I1@ INDI\n1 NAME Erika /Muster/\n1 SEX F\n0 TRLR"],
+        "test.ged",
+        { type: "text/plain" }
+      );
+
+      const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+      await userEvent.upload(fileInput, file);
+
+      expect(await screen.findByText("Erika Muster")).toBeInTheDocument();
+      expect(screen.queryByText("Max Berger")).not.toBeInTheDocument();
+    });
+
+    it("shows a dismissible error and keeps the current tree when the file is invalid", async () => {
+      render(<App />);
+      const file = new File(["0 HEAD\n0 TRLR"], "empty.ged", { type: "text/plain" });
+
+      const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+      await userEvent.upload(fileInput, file);
+
+      expect(await screen.findByText(/Keine Personen/)).toBeInTheDocument();
+      expect(screen.getByText("Max Berger")).toBeInTheDocument();
+
+      await userEvent.click(screen.getByLabelText("Fehlermeldung schließen"));
+      expect(screen.queryByText(/Keine Personen/)).not.toBeInTheDocument();
+    });
+  });
 });

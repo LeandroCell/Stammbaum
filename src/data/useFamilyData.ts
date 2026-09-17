@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { people as initialPeople, families as initialFamilies } from "./sampleData";
+import { parseGedcom } from "./gedcomImport";
 import type { Person, Family } from "./types";
 
 interface FamilyDataState {
@@ -13,6 +14,8 @@ interface FamilyDataState {
   setParents: (childId: string, fatherId: string | null, motherId: string | null) => void;
   addPartner: (personId: string, partnerId: string) => void;
   removePartner: (personId: string, partnerId: string) => void;
+  importGedcomFile: (file: File) => Promise<void>;
+  clearImportError: () => void;
 }
 
 // ponytail: session-only ids via Math.random — fine for an in-memory
@@ -24,6 +27,19 @@ function generateId(prefix: string): string {
 
 function withoutEmptyFamilies(families: Family[]): Family[] {
   return families.filter((f) => f.partnerIds.length > 0 || f.childrenIds.length > 0);
+}
+
+// ponytail: FileReader instead of the newer Blob.text() — both work in
+// every real browser, but this project's test environment (jsdom) doesn't
+// implement Blob.text() yet, and FileReader is the one that's testable
+// there too.
+function readFileAsText(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(reader.error ?? new Error("Datei konnte nicht gelesen werden."));
+    reader.readAsText(file);
+  });
 }
 
 export const useFamilyData = create<FamilyDataState>((set, get) => ({
@@ -116,4 +132,23 @@ export const useFamilyData = create<FamilyDataState>((set, get) => ({
       ),
     }));
   },
+
+  // ponytail: a GEDCOM import replaces the whole tree rather than merging
+  // it into the current one — the file represents a complete, independent
+  // family tree, and there's no reliable way to match its ids against ours.
+  importGedcomFile: async (file) => {
+    set({ isLoading: true, error: null });
+    try {
+      const text = await readFileAsText(file);
+      const { people, families } = parseGedcom(text);
+      set({ people, families, isLoading: false, error: null });
+    } catch (err) {
+      set({
+        isLoading: false,
+        error: err instanceof Error ? err : new Error("GEDCOM-Import fehlgeschlagen."),
+      });
+    }
+  },
+
+  clearImportError: () => set({ error: null }),
 }));

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState, type ChangeEvent } from "react";
 import { useFamilyData } from "./data/useFamilyData";
 import { useTreeStore, type ViewMode } from "./state/useTreeStore";
 import { TreeCanvas } from "./components/TreeCanvas/TreeCanvas";
@@ -37,6 +37,10 @@ function App() {
   const setParents = useFamilyData((s) => s.setParents);
   const addPartner = useFamilyData((s) => s.addPartner);
   const removePartner = useFamilyData((s) => s.removePartner);
+  const importGedcomFile = useFamilyData((s) => s.importGedcomFile);
+  const clearImportError = useFamilyData((s) => s.clearImportError);
+  const isImporting = useFamilyData((s) => s.isLoading);
+  const importError = useFamilyData((s) => s.error);
 
   const centerPersonId = useTreeStore((s) => s.centerPersonId);
   const selectedPersonId = useTreeStore((s) => s.selectedPersonId);
@@ -46,8 +50,22 @@ function App() {
   const setActiveView = useTreeStore((s) => s.setActiveView);
 
   const [formState, setFormState] = useState<FormState | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const selectedPerson = people.find((p) => p.id === selectedPersonId) ?? null;
+
+  async function handleGedcomFileChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    await importGedcomFile(file);
+    const imported = useFamilyData.getState();
+    if (!imported.error && imported.people.length > 0) {
+      selectPerson(null);
+      setCenterPerson(imported.people[0].id);
+    }
+  }
 
   function handleFormSubmit(values: PersonFormValues) {
     const personData = {
@@ -102,9 +120,33 @@ function App() {
           >
             + Neue Person
           </button>
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isImporting}
+            className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+          >
+            {isImporting ? "Importiere…" : "GEDCOM importieren"}
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".ged,.gedcom"
+            onChange={handleGedcomFileChange}
+            className="hidden"
+          />
           <ViewMenu activeView={activeView} onChangeView={setActiveView} />
         </div>
       </header>
+
+      {importError && (
+        <div className="absolute left-1/2 top-16 z-10 flex -translate-x-1/2 items-center gap-3 rounded-md bg-red-50 px-4 py-2 text-sm text-red-700 shadow">
+          <span>{importError.message}</span>
+          <button type="button" onClick={clearImportError} className="font-medium hover:underline" aria-label="Fehlermeldung schließen">
+            ✕
+          </button>
+        </div>
+      )}
 
       <TreeCanvas
         people={people}

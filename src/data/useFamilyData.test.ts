@@ -94,4 +94,39 @@ describe("useFamilyData", () => {
     );
     expect(stillPartners).toBe(false);
   });
+
+  describe("importGedcomFile", () => {
+    const validGedcom = "0 HEAD\n0 @I1@ INDI\n1 NAME Erika /Muster/\n1 SEX F\n0 TRLR";
+
+    it("sets isLoading while the import is in progress and clears it afterward", async () => {
+      const file = new File([validGedcom], "test.ged");
+      const promise = useFamilyData.getState().importGedcomFile(file);
+      expect(useFamilyData.getState().isLoading).toBe(true);
+      await promise;
+      expect(useFamilyData.getState().isLoading).toBe(false);
+    });
+
+    it("replaces people and families with the imported data on success", async () => {
+      const file = new File([validGedcom], "test.ged");
+      await useFamilyData.getState().importGedcomFile(file);
+      const state = useFamilyData.getState();
+      expect(state.people).toHaveLength(1);
+      expect(state.people[0]).toMatchObject({ firstName: "Erika", lastName: "Muster" });
+      expect(state.error).toBeNull();
+    });
+
+    it("keeps the existing data and sets an error when the file is invalid", async () => {
+      const file = new File(["0 HEAD\n0 TRLR"], "empty.ged");
+      await useFamilyData.getState().importGedcomFile(file);
+      const state = useFamilyData.getState();
+      expect(state.error).toBeInstanceOf(Error);
+      expect(state.people.some((p) => p.id === "me")).toBe(true);
+    });
+  });
+
+  it("clears a previous import error", () => {
+    useFamilyData.setState({ error: new Error("test") });
+    useFamilyData.getState().clearImportError();
+    expect(useFamilyData.getState().error).toBeNull();
+  });
 });
