@@ -49,6 +49,44 @@ describe("PersonInfoPanel", () => {
     expect(onEdit).toHaveBeenCalledWith("me");
   });
 
+  describe("Einklappen", () => {
+    it("shows a collapse handle once a person is selected", () => {
+      render(<PersonInfoPanel person={me} onClose={noop} onCenter={noop} onEdit={noop} onDelete={noop} />);
+      expect(screen.getByLabelText("Info-Panel ausblenden")).toBeInTheDocument();
+    });
+
+    it("slides the panel out of view when the collapse handle is clicked, without deselecting", async () => {
+      render(<PersonInfoPanel person={me} onClose={noop} onCenter={noop} onEdit={noop} onDelete={noop} />);
+      expect(screen.getByRole("complementary", { hidden: true })).toHaveAttribute("aria-hidden", "false");
+
+      await userEvent.click(screen.getByLabelText("Info-Panel ausblenden"));
+
+      expect(screen.getByRole("complementary", { hidden: true })).toHaveAttribute("aria-hidden", "true");
+      expect(screen.getByText("Max Berger")).toBeInTheDocument();
+    });
+
+    it("slides the panel back into view when the handle is clicked again", async () => {
+      render(<PersonInfoPanel person={me} onClose={noop} onCenter={noop} onEdit={noop} onDelete={noop} />);
+      await userEvent.click(screen.getByLabelText("Info-Panel ausblenden"));
+      await userEvent.click(screen.getByLabelText("Info-Panel einblenden"));
+
+      expect(screen.getByRole("complementary", { hidden: true })).toHaveAttribute("aria-hidden", "false");
+    });
+
+    it("shows the newly selected person again even if the panel was left collapsed", async () => {
+      const { rerender } = render(
+        <PersonInfoPanel person={me} onClose={noop} onCenter={noop} onEdit={noop} onDelete={noop} />
+      );
+      await userEvent.click(screen.getByLabelText("Info-Panel ausblenden"));
+      expect(screen.getByRole("complementary", { hidden: true })).toHaveAttribute("aria-hidden", "true");
+
+      const father = people.find((p) => p.id === "father")!;
+      rerender(<PersonInfoPanel person={father} onClose={noop} onCenter={noop} onEdit={noop} onDelete={noop} />);
+
+      expect(screen.getByRole("complementary", { hidden: true })).toHaveAttribute("aria-hidden", "false");
+    });
+  });
+
   describe("Löschen", () => {
     afterEach(() => {
       vi.restoreAllMocks();
