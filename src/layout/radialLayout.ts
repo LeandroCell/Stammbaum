@@ -2,15 +2,18 @@ import type { LayoutEdge, LayoutFn, PositionedNode } from "./layout.types";
 import { buildFamilyMaps, orderParentsFatherFirst, type FamilyMaps } from "./familyGraph";
 
 const RING_RADIUS_STEP = 180;
-const PARTNER_RADIUS = 110;
+const PARTNER_SPACING = 200;
 const MAX_GENERATIONS = 5;
 
 // ponytail: pure ancestor fan chart, per spec section 4 — no descendants,
-// no siblings. Father's whole subtree always occupies the half of the
-// angular slice closer to angle=0 (which maps to "right" via the x/y
-// formula below), mother's the half closer to the full-turn end ("left"),
-// so "Vater rechts, Mutter links" holds at every generation, not just the
-// first one.
+// no siblings. The fan only spans the top semicircle (angle -90°..+90°,
+// i.e. left-up-right), leaving the bottom half free for the center
+// person's partner(s) — a full 360° fan would place generation-1 father
+// directly on the same horizontal ray the partner sits on, overlapping it.
+// Father's whole subtree always occupies the half of the angular slice
+// closer to angleEnd ("right" via the x/y formula below), mother's the
+// half closer to angleStart ("left"), so "Vater rechts, Mutter links"
+// holds at every generation, not just the first one.
 function layoutRadialAncestors(
   personId: string,
   generation: number,
@@ -37,11 +40,11 @@ function layoutRadialAncestors(
 
   if (fatherId) {
     edges.push({ id: `${fatherId}->${personId}`, fromPersonId: fatherId, toPersonId: personId, kind: "parent-child" });
-    layoutRadialAncestors(fatherId, generation + 1, angleStart, mid, maps, nodes, edges);
+    layoutRadialAncestors(fatherId, generation + 1, mid, angleEnd, maps, nodes, edges);
   }
   if (motherId) {
     edges.push({ id: `${motherId}->${personId}`, fromPersonId: motherId, toPersonId: personId, kind: "parent-child" });
-    layoutRadialAncestors(motherId, generation + 1, mid, angleEnd, maps, nodes, edges);
+    layoutRadialAncestors(motherId, generation + 1, angleStart, mid, maps, nodes, edges);
   }
 }
 
@@ -50,8 +53,10 @@ export const radialLayout: LayoutFn = (people, families, centerPersonId) => {
   const nodes = new Map<string, PositionedNode>();
   const edges: LayoutEdge[] = [];
 
-  layoutRadialAncestors(centerPersonId, 0, 0, 2 * Math.PI, maps, nodes, edges);
+  layoutRadialAncestors(centerPersonId, 0, -Math.PI / 2, Math.PI / 2, maps, nodes, edges);
 
+  // Partner(s) go below the center, in the semicircle the ancestor fan
+  // never uses.
   const centerFamilies = maps.familiesByPartnerId.get(centerPersonId) ?? [];
   const partnerIds = centerFamilies
     .flatMap((f) => f.partnerIds)
@@ -59,8 +64,8 @@ export const radialLayout: LayoutFn = (people, families, centerPersonId) => {
   partnerIds.forEach((partnerId, index) => {
     nodes.set(partnerId, {
       personId: partnerId,
-      x: PARTNER_RADIUS * (index + 1),
-      y: 0,
+      x: 0,
+      y: PARTNER_SPACING * (index + 1),
       generation: 0,
     });
     edges.push({
