@@ -1,0 +1,107 @@
+import type { Person, Family } from "./types";
+
+export const people: Person[] = [
+  {
+    id: "pgf",
+    firstName: "Karl",
+    lastName: "Berger",
+    birthDate: "1930-03-12",
+    deathDate: "2005-11-02",
+    birthPlace: "München",
+    gender: "male",
+  },
+  {
+    id: "pgm",
+    firstName: "Erna",
+    lastName: "Berger",
+    birthName: "Wolf",
+    birthDate: "1932-07-04",
+    deathDate: "2010-01-20",
+    birthPlace: "Augsburg",
+    gender: "female",
+  },
+  {
+    id: "mgf",
+    firstName: "Hans",
+    lastName: "Vogel",
+    birthDate: "1928-05-09",
+    deathDate: "1999-09-15",
+    birthPlace: "Köln",
+    gender: "male",
+  },
+  {
+    id: "mgm",
+    firstName: "Grete",
+    lastName: "Vogel",
+    birthName: "Schmidt",
+    birthDate: "1931-02-27",
+    deathDate: "2012-06-30",
+    birthPlace: "Bonn",
+    gender: "female",
+  },
+  {
+    id: "father",
+    firstName: "Thomas",
+    lastName: "Berger",
+    birthDate: "1958-09-21",
+    birthPlace: "München",
+    gender: "male",
+    biography: "Aufgewachsen in München, später Ingenieur.",
+  },
+  {
+    id: "mother",
+    firstName: "Anna",
+    lastName: "Berger",
+    birthName: "Vogel",
+    birthDate: "1961-04-14",
+    birthPlace: "Köln",
+    gender: "female",
+  },
+  {
+    id: "sibling1",
+    firstName: "Julia",
+    lastName: "Berger",
+    birthDate: "1990-12-01",
+    gender: "female",
+  },
+  {
+    id: "me",
+    firstName: "Max",
+    lastName: "Berger",
+    birthDate: "1988-06-18",
+    birthPlace: "Frankfurt am Main",
+    gender: "male",
+    biography: "Mittelpunkt des Beispiel-Stammbaums.",
+    photos: [
+      { id: "photo-me-1", url: "https://placehold.co/200x200", caption: "Beispielbild" },
+    ],
+    sources: [
+      { id: "src-1", title: "Geburtsurkunde Standesamt Frankfurt", note: "Familienarchiv" },
+    ],
+    documents: [
+      { id: "doc-1", title: "Einbürgerungsurkunde", url: "https://example.com/doc.pdf", type: "PDF" },
+    ],
+  },
+  {
+    id: "partner",
+    firstName: "Lisa",
+    lastName: "Berger",
+    birthName: "Fuchs",
+    birthDate: "1989-02-09",
+    gender: "female",
+  },
+  {
+    id: "child1",
+    firstName: "Ben",
+    lastName: "Berger",
+    birthDate: "2016-08-30",
+    gender: "male",
+  },
+];
+
+export const families: Family[] = [
+  { id: "fam-paternal", partnerIds: ["pgf", "pgm"], childrenIds: ["father"] },
+  { id: "fam-maternal", partnerIds: ["mgf", "mgm"], childrenIds: ["mother"] },
+  { id: "fam-parents", partnerIds: ["father", "mother"], childrenIds: ["me", "sibling1"] },
+  { id: "fam-me", partnerIds: ["me", "partner"], childrenIds: ["child1"] },
+];
