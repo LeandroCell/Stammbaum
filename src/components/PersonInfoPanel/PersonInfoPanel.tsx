@@ -1,9 +1,12 @@
+import { useEffect, useState } from "react";
 import type { Person } from "../../data/types";
 
 interface PersonInfoPanelProps {
   person: Person | null;
   onClose: () => void;
   onCenter: (personId: string) => void;
+  onEdit: (personId: string) => void;
+  onDelete: (personId: string) => void;
 }
 
 function formatDate(dateString?: string): string | undefined {
@@ -13,14 +16,36 @@ function formatDate(dateString?: string): string | undefined {
   return `${day}.${month}.${year}`;
 }
 
-export function PersonInfoPanel({ person, onClose, onCenter }: PersonInfoPanelProps) {
+export function PersonInfoPanel({ person, onClose, onCenter, onEdit, onDelete }: PersonInfoPanelProps) {
+  const [isCollapsed, setIsCollapsed] = useState(false);
+
+  // Selecting a (new) person always shows their info — collapsing is a
+  // manual, temporary "get it out of my way for a moment" action, not a
+  // sticky preference that should hide the next person you click on.
+  useEffect(() => {
+    setIsCollapsed(false);
+  }, [person?.id]);
+
+  const isVisible = Boolean(person) && !isCollapsed;
+
   return (
     <aside
       className={`fixed left-0 top-0 h-full w-full max-w-sm transform bg-white shadow-xl transition-transform duration-300 ease-out ${
-        person ? "translate-x-0" : "-translate-x-full"
+        isVisible ? "translate-x-0" : "-translate-x-full"
       }`}
-      aria-hidden={!person}
+      aria-hidden={!isVisible}
     >
+      {person && (
+        <button
+          type="button"
+          onClick={() => setIsCollapsed((collapsed) => !collapsed)}
+          aria-label={isCollapsed ? "Info-Panel einblenden" : "Info-Panel ausblenden"}
+          className="absolute -right-7 top-1/2 flex h-14 w-7 -translate-y-1/2 items-center justify-center rounded-r-md bg-white text-slate-400 shadow-md hover:text-slate-600"
+        >
+          {isCollapsed ? "›" : "‹"}
+        </button>
+      )}
+
       {person && (
         <div className="flex h-full flex-col overflow-y-auto p-6">
           <div className="flex items-start justify-between">
@@ -32,13 +57,33 @@ export function PersonInfoPanel({ person, onClose, onCenter }: PersonInfoPanelPr
             </button>
           </div>
 
-          <button
-            type="button"
-            onClick={() => onCenter(person.id)}
-            className="mt-4 self-start rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700"
-          >
-            Zentrieren
-          </button>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => onCenter(person.id)}
+              className="rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700"
+            >
+              Zentrieren
+            </button>
+            <button
+              type="button"
+              onClick={() => onEdit(person.id)}
+              className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            >
+              Bearbeiten
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (window.confirm(`${person.firstName} ${person.lastName} wirklich löschen?`)) {
+                  onDelete(person.id);
+                }
+              }}
+              className="rounded-md border border-red-200 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
+            >
+              Löschen
+            </button>
+          </div>
 
           <section className="mt-6 space-y-1 text-sm text-slate-700">
             <h3 className="font-medium text-slate-900">Übersicht</h3>

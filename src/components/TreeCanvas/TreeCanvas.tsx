@@ -2,7 +2,10 @@ import { useLayoutEffect, useMemo, useRef } from "react";
 import * as d3 from "d3";
 import type { Person, Family } from "../../data/types";
 import type { LayoutFn } from "../../layout/layout.types";
-import { PersonCard } from "../PersonCard/PersonCard";
+import { PersonCard, CARD_WIDTH, CARD_HEIGHT } from "../PersonCard/PersonCard";
+import { computeFitTransform } from "./fitTransform";
+
+const VIEWPORT_PADDING = 80;
 
 interface TreeCanvasProps {
   people: Person[];
@@ -50,15 +53,26 @@ export function TreeCanvas({
       });
 
     svg.call(zoomBehavior);
-    svg.call(
-      zoomBehavior.transform,
-      d3.zoomIdentity.translate(window.innerWidth / 2, window.innerHeight / 2)
+
+    // Fit every node in the current layout within the viewport, instead of
+    // always centering at scale 1 — otherwise a relative placed far from
+    // the center (e.g. an extra sibling the naive spacing pushed further
+    // out) can end up entirely outside the visible pan/zoom window, which
+    // looks exactly like they vanished until you happen to zoom out.
+    const fit = computeFitTransform(
+      layout.nodes,
+      window.innerWidth,
+      window.innerHeight,
+      CARD_WIDTH,
+      CARD_HEIGHT,
+      VIEWPORT_PADDING
     );
+    svg.call(zoomBehavior.transform, d3.zoomIdentity.translate(fit.x, fit.y).scale(fit.k));
 
     return () => {
       svg.on(".zoom", null);
     };
-  }, [centerPersonId]);
+  }, [centerPersonId, layout]);
 
   const peopleById = useMemo(() => new Map(people.map((p) => [p.id, p])), [people]);
   const nodeById = useMemo(() => new Map(layout.nodes.map((n) => [n.personId, n])), [layout]);

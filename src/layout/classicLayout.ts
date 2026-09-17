@@ -1,51 +1,15 @@
-import type { Person, Family } from "../data/types";
 import type { LayoutEdge, LayoutFn, PositionedNode } from "./layout.types";
+import { buildFamilyMaps, orderParentsFatherFirst, type FamilyMaps } from "../data/familyGraph";
 
 const GENERATION_HEIGHT = 160;
 const NODE_SPACING = 220;
 const MAX_ANCESTOR_GENERATIONS = 5;
 const MAX_DESCENDANT_GENERATIONS = 5;
 
-interface Maps {
-  peopleById: Map<string, Person>;
-  familyByChildId: Map<string, Family>;
-  familiesByPartnerId: Map<string, Family[]>;
-}
-
-// ponytail: assumes a person is a child in at most one family (no known
-// double-adoption cases in the sample data). Extend familyByChildId to a
-// Map<string, Family[]> if that ever needs to be modeled.
-function buildMaps(people: Person[], families: Family[]): Maps {
-  const peopleById = new Map(people.map((p) => [p.id, p]));
-  const familyByChildId = new Map<string, Family>();
-  const familiesByPartnerId = new Map<string, Family[]>();
-
-  for (const family of families) {
-    for (const childId of family.childrenIds) {
-      familyByChildId.set(childId, family);
-    }
-    for (const partnerId of family.partnerIds) {
-      const existing = familiesByPartnerId.get(partnerId) ?? [];
-      existing.push(family);
-      familiesByPartnerId.set(partnerId, existing);
-    }
-  }
-
-  return { peopleById, familyByChildId, familiesByPartnerId };
-}
-
-function orderParentsFatherFirst(partnerIds: string[], peopleById: Map<string, Person>): string[] {
-  const known = partnerIds.filter((id) => peopleById.has(id));
-  const father = known.find((id) => peopleById.get(id)?.gender === "male");
-  const mother = known.find((id) => peopleById.get(id)?.gender === "female");
-  const rest = known.filter((id) => id !== father && id !== mother);
-  return [father, mother, ...rest].filter((id): id is string => Boolean(id));
-}
-
 function layoutAncestors(
   personId: string,
   generation: number,
-  maps: Maps,
+  maps: FamilyMaps,
   nextLeafX: { value: number },
   nodes: Map<string, PositionedNode>,
   edges: LayoutEdge[]
@@ -92,15 +56,61 @@ function layoutAncestors(
   return x;
 }
 
-// ponytail: classic view shows only the center person's direct ancestor
-// line, their partner(s), and their own descendants — siblings/aunts/uncles
-// are intentionally out of scope here (per spec section 4). Centering on a
-// parent naturally reveals those relatives as that parent's own descendants.
+// Widens the ancestor spine to include siblings at every generation (the
+// center's own siblings, aunts/uncles, great-aunts/uncles, ...) so a person
+// is visible as soon as they're connected to the tree at all, not only when
+// they happen to be someone's direct parent.
+//
+// ponytail: siblings added here are leaves — their own descendants aren't
+// expanded (center on one of them to see their line). Placement is
+// collision-free by construction: `leftmostXByGeneration` tracks the
+// leftmost x used so far at each generation across the WHOLE tree (not
+// just one spine node's own siblings), and every new addition — from any
+// spine node, in any order — is placed strictly further left than
+// everything already at that generation, including the center's partner
+// and previously-added siblings from a different branch.
+function addAncestorSiblings(
+  nodes: Map<string, PositionedNode>,
+  edges: LayoutEdge[],
+  maps: FamilyMaps
+): void {
+  const spineSnapshot = Array.from(nodes.values()).filter((n) => n.generation <= 0);
+
+  const leftmostXByGeneration = new Map<number, number>();
+  for (const node of nodes.values()) {
+    const current = leftmostXByGeneration.get(node.generation);
+    if (current === undefined || node.x < current) {
+      leftmostXByGeneration.set(node.generation, node.x);
+    }
+  }
+
+  for (const node of spineSnapshot) {
+    const parentFamily = maps.familyByChildId.get(node.personId);
+    if (!parentFamily) continue;
+    const siblingIds = parentFamily.childrenIds.filter((id) => id !== node.personId && !nodes.has(id));
+    siblingIds.forEach((siblingId) => {
+      const leftmost = leftmostXByGeneration.get(node.generation) ?? node.x;
+      const x = leftmost - NODE_SPACING;
+      leftmostXByGeneration.set(node.generation, x);
+
+      nodes.set(siblingId, { personId: siblingId, x, y: node.y, generation: node.generation });
+      for (const parentId of parentFamily.partnerIds) {
+        edges.push({
+          id: `${parentId}->${siblingId}`,
+          fromPersonId: parentId,
+          toPersonId: siblingId,
+          kind: "parent-child",
+        });
+      }
+    });
+  }
+}
+
 function layoutDescendants(
   personId: string,
   generation: number,
   centerX: number,
-  maps: Maps,
+  maps: FamilyMaps,
   nextLeafX: { value: number },
   nodes: Map<string, PositionedNode>,
   edges: LayoutEdge[]
@@ -131,7 +141,7 @@ function layoutDescendants(
 }
 
 export const classicLayout: LayoutFn = (people, families, centerPersonId) => {
-  const maps = buildMaps(people, families);
+  const maps = buildFamilyMaps(people, families);
   const nodes = new Map<string, PositionedNode>();
   const edges: LayoutEdge[] = [];
 
@@ -159,6 +169,8 @@ export const classicLayout: LayoutFn = (people, families, centerPersonId) => {
 
   const descendantLeafX = { value: centerX - NODE_SPACING / 2 };
   layoutDescendants(centerPersonId, 0, centerX, maps, descendantLeafX, nodes, edges);
+
+  addAncestorSiblings(nodes, edges, maps);
 
   const offsetX = nodes.get(centerPersonId)?.x ?? 0;
   const recentered = Array.from(nodes.values()).map((n) => ({ ...n, x: n.x - offsetX }));
