@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useLayoutEffect, useMemo, useRef } from "react";
 import * as d3 from "d3";
 import type { Person, Family } from "../../data/types";
 import type { LayoutFn } from "../../layout/layout.types";
@@ -29,7 +29,7 @@ export function TreeCanvas({
     [people, families, centerPersonId, layoutFn]
   );
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!svgRef.current || !groupRef.current) return;
     const svg = d3.select(svgRef.current);
     const group = d3.select(groupRef.current);
@@ -41,8 +41,9 @@ export function TreeCanvas({
       .scaleExtent([0.1, 3])
       .extent([[0, 0], [window.innerWidth, window.innerHeight]])
       .filter((event: MouseEvent | WheelEvent) => {
-        const target = event.target as Element;
-        return (!event.ctrlKey || event.type === "wheel") && !(event as MouseEvent).button && !target.closest("button");
+        if (event.type === "wheel") return true;
+        const target = event.target as Element | null;
+        return !event.ctrlKey && !(event as MouseEvent).button && !target?.closest("button");
       })
       .on("zoom", (event: d3.D3ZoomEvent<SVGSVGElement, unknown>) => {
         group.attr("transform", event.transform.toString());

@@ -73,7 +73,11 @@ export const people: Person[] = [
     gender: "male",
     biography: "Mittelpunkt des Beispiel-Stammbaums.",
     photos: [
-      { id: "photo-me-1", url: "https://placehold.co/200x200", caption: "Beispielbild" },
+      {
+        id: "photo-me-1",
+        url: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Crect width='200' height='200' fill='%23cbd5e1'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dominant-baseline='middle' font-family='sans-serif' font-size='16' fill='%2364748b'%3EBeispielbild%3C/text%3E%3C/svg%3E",
+        caption: "Beispielbild",
+      },
     ],
     sources: [
       { id: "src-1", title: "Geburtsurkunde Standesamt Frankfurt", note: "Familienarchiv" },
