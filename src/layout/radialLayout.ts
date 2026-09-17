@@ -1,5 +1,5 @@
 import type { LayoutEdge, LayoutFn, PositionedNode } from "./layout.types";
-import { buildFamilyMaps, orderParentsFatherFirst, type FamilyMaps } from "./familyGraph";
+import { buildFamilyMaps, orderParentsFatherFirst, type FamilyMaps } from "../data/familyGraph";
 
 const RING_RADIUS_STEP = 180;
 const PARTNER_SPACING = 200;

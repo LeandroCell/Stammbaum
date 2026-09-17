@@ -1,5 +1,5 @@
 import type { LayoutEdge, LayoutFn, PositionedNode } from "./layout.types";
-import { buildFamilyMaps, orderParentsFatherFirst, type FamilyMaps } from "./familyGraph";
+import { buildFamilyMaps, orderParentsFatherFirst, type FamilyMaps } from "../data/familyGraph";
 
 const GENERATION_HEIGHT = 160;
 const NODE_SPACING = 220;

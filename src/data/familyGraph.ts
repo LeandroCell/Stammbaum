@@ -1,4 +1,4 @@
-import type { Person, Family } from "../data/types";
+import type { Person, Family } from "./types";
 
 export interface FamilyMaps {
   peopleById: Map<string, Person>;

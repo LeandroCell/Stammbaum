@@ -4,6 +4,8 @@ interface PersonInfoPanelProps {
   person: Person | null;
   onClose: () => void;
   onCenter: (personId: string) => void;
+  onEdit: (personId: string) => void;
+  onDelete: (personId: string) => void;
 }
 
 function formatDate(dateString?: string): string | undefined {
@@ -13,7 +15,7 @@ function formatDate(dateString?: string): string | undefined {
   return `${day}.${month}.${year}`;
 }
 
-export function PersonInfoPanel({ person, onClose, onCenter }: PersonInfoPanelProps) {
+export function PersonInfoPanel({ person, onClose, onCenter, onEdit, onDelete }: PersonInfoPanelProps) {
   return (
     <aside
       className={`fixed left-0 top-0 h-full w-full max-w-sm transform bg-white shadow-xl transition-transform duration-300 ease-out ${
@@ -32,13 +34,33 @@ export function PersonInfoPanel({ person, onClose, onCenter }: PersonInfoPanelPr
             </button>
           </div>
 
-          <button
-            type="button"
-            onClick={() => onCenter(person.id)}
-            className="mt-4 self-start rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700"
-          >
-            Zentrieren
-          </button>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => onCenter(person.id)}
+              className="rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700"
+            >
+              Zentrieren
+            </button>
+            <button
+              type="button"
+              onClick={() => onEdit(person.id)}
+              className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            >
+              Bearbeiten
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (window.confirm(`${person.firstName} ${person.lastName} wirklich löschen?`)) {
+                  onDelete(person.id);
+                }
+              }}
+              className="rounded-md border border-red-200 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
+            >
+              Löschen
+            </button>
+          </div>
 
           <section className="mt-6 space-y-1 text-sm text-slate-700">
             <h3 className="font-medium text-slate-900">Übersicht</h3>
