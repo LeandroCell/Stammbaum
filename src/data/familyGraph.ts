@@ -75,3 +75,21 @@ export function pickDefaultCenter(people: Person[], families: Family[]): string 
   }
   return best;
 }
+
+// Picks the person with the latest known birth year — used by the "Alle
+// Personen" action, which centers the classic view (ancestors + descendants
+// + siblings + partner) on whoever is youngest, since that person's
+// ancestor chain tends to surface as much of the tree as a single center
+// can show. Falls back to the first person if nobody has a birth date.
+export function pickYoungestPerson(people: Person[]): string | undefined {
+  let best: Person | undefined;
+  let bestYear = -Infinity;
+  for (const person of people) {
+    const year = person.birthDate ? Number(person.birthDate.slice(0, 4)) : NaN;
+    if (!Number.isNaN(year) && year > bestYear) {
+      bestYear = year;
+      best = person;
+    }
+  }
+  return (best ?? people[0])?.id;
+}

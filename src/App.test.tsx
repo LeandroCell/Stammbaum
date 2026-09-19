@@ -38,18 +38,20 @@ describe("App", () => {
     expect(screen.queryByText("Zentrieren")).not.toBeInTheDocument();
   });
 
-  it("lets you jump back to a person who fell out of view in the radial view", async () => {
+  it("shows the whole tree anchored on the youngest person when 'Alle Personen' is clicked", async () => {
     render(<App />);
     await userEvent.click(screen.getByLabelText("Darstellung wählen"));
     await userEvent.click(screen.getByText(/Runder Stammbaum/));
     expect(screen.queryByText("Julia Berger")).not.toBeInTheDocument();
+    expect(screen.queryByText("Lisa Berger")).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByText("Alle Personen"));
-    await userEvent.click(screen.getByText(/Julia Berger/));
 
-    expect(screen.queryByRole("dialog", { name: "Alle Personen" })).not.toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Julia Berger" })).toBeInTheDocument();
-    expect(screen.getByText("Zentrieren")).toBeInTheDocument();
+    // Ben (child1) is the youngest in the sample data, and centering the
+    // classic view on him reveals every other person too.
+    expect(screen.getByText("Ben Berger")).toBeInTheDocument();
+    expect(screen.getByText("Julia Berger")).toBeInTheDocument();
+    expect(screen.getByText("Lisa Berger")).toBeInTheDocument();
   });
 
   it("switches to the radial view via the three-dot menu, hiding descendants that the classic view shows", async () => {

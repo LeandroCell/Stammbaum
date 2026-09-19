@@ -86,68 +86,6 @@ function layoutAncestors(
 }
 
 
-// Adds siblings for any generation<=0 node that layoutAncestors' own
-// recursion didn't already cover — in practice that's the center's
-// partner(s), placed after the ancestor pass finished, so their siblings
-// (in-laws) would otherwise be missing. (Everyone actually on the ancestor
-// spine already got their siblings from layoutAncestors itself, so this is
-// a no-op for them — `!nodes.has(id)` skips anyone already placed.)
-//
-// ponytail: siblings added here are leaves — their own descendants aren't
-// expanded (center on one of them to see their line). Placement is
-// collision-free by construction: `leftmostXByGeneration` tracks the
-// leftmost x used so far at each generation across the WHOLE tree (not
-// just one spine node's own siblings), and every new addition — from any
-// spine node, in any order — is placed strictly further left than
-// everything already at that generation, including the center's partner
-// and previously-added siblings from a different branch.
-function addAncestorSiblings(
-  nodes: Map<string, PositionedNode>,
-  edges: LayoutEdge[],
-  maps: FamilyMaps,
-  centerPersonId: string
-): void {
-  const spineSnapshot = Array.from(nodes.values()).filter((n) => n.generation <= 0);
-
-  const leftmostXByGeneration = new Map<number, number>();
-  for (const node of nodes.values()) {
-    const current = leftmostXByGeneration.get(node.generation);
-    if (current === undefined || node.x < current) {
-      leftmostXByGeneration.set(node.generation, node.x);
-    }
-  }
-
-  const rightmostXByGeneration = new Map<number, number>();
-  for (const node of nodes.values()) {
-    rightmostXByGeneration.set(node.generation, Math.max(node.x, rightmostXByGeneration.get(node.generation) ?? -Infinity));
-  }
-  const rightmostX = (generation: number) => rightmostXByGeneration.get(generation)!;
-
-  for (const node of spineSnapshot) {
-    const parentFamily = maps.familyByChildId.get(node.personId);
-    if (!parentFamily) continue;
-    const siblingIds = parentFamily.childrenIds.filter((id) => id !== node.personId && !nodes.has(id));
-    // The center's partner sits at the right end of generation 0, so their
-    // siblings go further right, next to them, instead of across the row.
-    const isPartner = node.generation === 0 && node.personId !== centerPersonId;
-    siblingIds.forEach((siblingId) => {
-      const x = isPartner ? rightmostX(node.generation) + NODE_SPACING : leftmostXByGeneration.get(node.generation)! - NODE_SPACING;
-      if (isPartner) rightmostXByGeneration.set(node.generation, x);
-      else leftmostXByGeneration.set(node.generation, x);
-
-      nodes.set(siblingId, { personId: siblingId, x, y: node.y, generation: node.generation });
-      for (const parentId of parentFamily.partnerIds) {
-        edges.push({
-          id: `${parentId}->${siblingId}`,
-          fromPersonId: parentId,
-          toPersonId: siblingId,
-          kind: "parent-child",
-        });
-      }
-    });
-  }
-}
-
 interface DescendantUnit {
   personId: string;
   partnerIds: string[];
@@ -274,10 +212,6 @@ export const classicLayout: LayoutFn = (people, families, centerPersonId, option
     nodes.set(node.personId, { ...node, x: node.x + shift });
   }
   edges.push(...scratchEdges);
-
-  if (showSiblings) {
-    addAncestorSiblings(nodes, edges, maps, centerPersonId);
-  }
 
   const offsetX = nodes.get(centerPersonId)?.x ?? 0;
   const recentered = Array.from(nodes.values()).map((n) => ({ ...n, x: n.x - offsetX }));

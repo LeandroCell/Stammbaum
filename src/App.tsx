@@ -4,7 +4,6 @@ import { useTreeStore, type ViewMode } from "./state/useTreeStore";
 import { TreeCanvas } from "./components/TreeCanvas/TreeCanvas";
 import type { ConnectorStyle } from "./components/TreeCanvas/familyConnectors";
 import { PersonInfoPanel } from "./components/PersonInfoPanel/PersonInfoPanel";
-import { PersonBrowser } from "./components/PersonBrowser/PersonBrowser";
 import { ViewMenu } from "./components/ViewMenu/ViewMenu";
 import { LoginScreen } from "./components/LoginScreen/LoginScreen";
 import {
@@ -18,7 +17,7 @@ import { radialLayout } from "./layout/radialLayout";
 import type { LayoutFn } from "./layout/layout.types";
 import type { DocumentRef, Photo, Source } from "./data/types";
 import { exportGedcom } from "./data/gedcomExport";
-import { pickDefaultCenter } from "./data/familyGraph";
+import { pickDefaultCenter, pickYoungestPerson } from "./data/familyGraph";
 
 const LAYOUTS: Record<ViewMode, LayoutFn> = {
   classic: classicLayout,
@@ -102,7 +101,6 @@ function App() {
   const toggleShowSiblings = useTreeStore((s) => s.toggleShowSiblings);
 
   const [formState, setFormState] = useState<FormState | null>(null);
-  const [showPersonBrowser, setShowPersonBrowser] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -176,10 +174,15 @@ function App() {
     setFormState(null);
   }
 
-  function handleSelectFromBrowser(personId: string) {
-    setCenterPerson(personId);
-    selectPerson(personId);
-    setShowPersonBrowser(false);
+  // Shows the whole tree, anchored on the youngest known person — their
+  // ancestor chain plus siblings/partner is the most complete single view
+  // the classic layout can produce.
+  function handleShowWholeTree() {
+    const youngest = pickYoungestPerson(people);
+    if (!youngest) return;
+    setActiveView("classic");
+    setCenterPerson(youngest);
+    selectPerson(null);
   }
 
   async function handleDelete(personId: string) {
@@ -205,7 +208,7 @@ function App() {
           </button>
           <button
             type="button"
-            onClick={() => setShowPersonBrowser(true)}
+            onClick={handleShowWholeTree}
             className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
           >
             Alle Personen
@@ -302,14 +305,6 @@ function App() {
           }
           onSubmit={handleFormSubmit}
           onCancel={() => setFormState(null)}
-        />
-      )}
-
-      {showPersonBrowser && (
-        <PersonBrowser
-          people={people}
-          onSelect={handleSelectFromBrowser}
-          onClose={() => setShowPersonBrowser(false)}
         />
       )}
     </div>

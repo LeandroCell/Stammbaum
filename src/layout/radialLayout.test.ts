@@ -35,6 +35,23 @@ describe("radialLayout", () => {
     expect(mother.generation).toBe(-1);
   });
 
+  it("places the direct parents exactly level with the centered person, not diagonally above them", () => {
+    const father = nodeById.get("father")!;
+    const mother = nodeById.get("mother")!;
+    expect(father.y).toBeCloseTo(0);
+    expect(mother.y).toBeCloseTo(0);
+  });
+
+  it("fans further generations evenly above and below their own parent's position, not further upward", () => {
+    // pgf/pgm are father's own parents: one should end up above father's
+    // row, the other below it — not both drifting further up the page.
+    const father = nodeById.get("father")!;
+    const pgf = nodeById.get("pgf")!;
+    const pgm = nodeById.get("pgm")!;
+    expect(pgf.y).toBeGreaterThan(father.y);
+    expect(pgm.y).toBeLessThan(father.y);
+  });
+
   it("places grandparents on a wider ring than parents", () => {
     const father = nodeById.get("father")!;
     const paternalGrandfather = nodeById.get("pgf")!;
