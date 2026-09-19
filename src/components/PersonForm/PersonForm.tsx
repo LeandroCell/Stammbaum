@@ -27,6 +27,18 @@ function generateLocalId(prefix: string): string {
   return `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+// Embeds the uploaded file directly as a data: URL — same approach the
+// sample data's example photo already uses — since this prototype has no
+// backend file storage; `url` just becomes a (large) self-contained string.
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(reader.error ?? new Error("Datei konnte nicht gelesen werden."));
+    reader.readAsDataURL(file);
+  });
+}
+
 interface PersonFormProps {
   mode: "create" | "edit";
   people: Person[];
@@ -262,7 +274,21 @@ export function PersonForm({ mode, people, initialValues, excludePersonId, onSub
             renderFields={(photo, updatePhoto) => (
               <>
                 <label className="col-span-2 text-xs text-slate-600 sm:col-span-1">
-                  Bild-URL*
+                  Datei hochladen
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      e.target.value = "";
+                      if (!file) return;
+                      updatePhoto({ url: await readFileAsDataUrl(file) });
+                    }}
+                    className="mt-1 w-full text-xs text-slate-600"
+                  />
+                </label>
+                <label className="col-span-2 text-xs text-slate-600 sm:col-span-1">
+                  oder Bild-URL*
                   <input
                     required
                     value={photo.url}
@@ -270,7 +296,7 @@ export function PersonForm({ mode, people, initialValues, excludePersonId, onSub
                     className="mt-1 w-full rounded border border-slate-300 px-2 py-1 text-sm"
                   />
                 </label>
-                <label className="col-span-2 text-xs text-slate-600 sm:col-span-1">
+                <label className="col-span-2 text-xs text-slate-600">
                   Bildunterschrift
                   <input
                     value={photo.caption ?? ""}
@@ -278,6 +304,9 @@ export function PersonForm({ mode, people, initialValues, excludePersonId, onSub
                     className="mt-1 w-full rounded border border-slate-300 px-2 py-1 text-sm"
                   />
                 </label>
+                {photo.url && (
+                  <img src={photo.url} alt="" className="col-span-2 h-16 w-16 rounded object-cover" />
+                )}
               </>
             )}
           />
@@ -346,8 +375,21 @@ export function PersonForm({ mode, people, initialValues, excludePersonId, onSub
                     className="mt-1 w-full rounded border border-slate-300 px-2 py-1 text-sm"
                   />
                 </label>
+                <label className="col-span-2 text-xs text-slate-600 sm:col-span-1">
+                  Datei hochladen
+                  <input
+                    type="file"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      e.target.value = "";
+                      if (!file) return;
+                      updateDoc({ url: await readFileAsDataUrl(file), type: doc.type || file.type || undefined });
+                    }}
+                    className="mt-1 w-full text-xs text-slate-600"
+                  />
+                </label>
                 <label className="col-span-2 text-xs text-slate-600">
-                  Link*
+                  oder Link*
                   <input
                     required
                     value={doc.url}

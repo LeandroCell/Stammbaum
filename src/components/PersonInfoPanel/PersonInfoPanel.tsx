@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import type { Person } from "../../data/types";
 
 interface PersonInfoPanelProps {
@@ -27,8 +28,23 @@ export function PersonInfoPanel({
   onToggleCollapsed,
 }: PersonInfoPanelProps) {
   const isVisible = Boolean(person) && !isCollapsed;
+  const [openPhotoIndex, setOpenPhotoIndex] = useState<number | null>(null);
+
+  // A stale index from a previous person's (possibly longer) photo list
+  // must never leak into the next person's lightbox.
+  useEffect(() => {
+    setOpenPhotoIndex(null);
+  }, [person?.id]);
+
+  const photos = person?.photos ?? [];
+  const openPhoto = openPhotoIndex !== null ? photos[openPhotoIndex] : undefined;
+
+  function showPhoto(index: number) {
+    setOpenPhotoIndex(((index % photos.length) + photos.length) % photos.length);
+  }
 
   return (
+    <>
     <aside
       className={`fixed left-0 top-0 z-20 h-full w-full max-w-sm transform bg-white shadow-xl transition-transform duration-300 ease-out ${
         isVisible ? "translate-x-0" : "-translate-x-full"
@@ -105,10 +121,18 @@ export function PersonInfoPanel({
 
           <section className="mt-6 text-sm text-slate-700">
             <h3 className="font-medium text-slate-900">Bilder</h3>
-            {person.photos?.length ? (
+            {photos.length ? (
               <div className="mt-2 grid grid-cols-3 gap-2">
-                {person.photos.map((photo) => (
-                  <img key={photo.id} src={photo.url} alt={photo.caption ?? ""} className="aspect-square rounded object-cover" />
+                {photos.map((photo, index) => (
+                  <button
+                    key={photo.id}
+                    type="button"
+                    onClick={() => setOpenPhotoIndex(index)}
+                    aria-label={`Bild vergrößern${photo.caption ? `: ${photo.caption}` : ""}`}
+                    className="aspect-square overflow-hidden rounded"
+                  >
+                    <img src={photo.url} alt={photo.caption ?? ""} className="h-full w-full object-cover" />
+                  </button>
                 ))}
               </div>
             ) : (
@@ -158,5 +182,49 @@ export function PersonInfoPanel({
         </div>
       )}
     </aside>
+
+    {openPhoto && (
+      <div
+        role="dialog"
+        aria-label="Bild"
+        className="fixed inset-0 z-40 flex flex-col items-center justify-center gap-4 bg-slate-900/80 p-6"
+      >
+        <button
+          type="button"
+          onClick={() => setOpenPhotoIndex(null)}
+          aria-label="Bild schließen"
+          className="absolute right-4 top-4 text-2xl text-white/80 hover:text-white"
+        >
+          ✕
+        </button>
+
+        <div className="flex max-h-[75vh] max-w-3xl items-center gap-4">
+          {photos.length > 1 && (
+            <button
+              type="button"
+              onClick={() => showPhoto(openPhotoIndex! - 1)}
+              aria-label="Vorheriges Bild"
+              className="text-3xl text-white/70 hover:text-white"
+            >
+              ‹
+            </button>
+          )}
+          <img src={openPhoto.url} alt={openPhoto.caption ?? ""} className="max-h-[75vh] max-w-full rounded object-contain" />
+          {photos.length > 1 && (
+            <button
+              type="button"
+              onClick={() => showPhoto(openPhotoIndex! + 1)}
+              aria-label="Nächstes Bild"
+              className="text-3xl text-white/70 hover:text-white"
+            >
+              ›
+            </button>
+          )}
+        </div>
+
+        <p className="min-h-[1.5rem] text-center text-sm text-white/90">{openPhoto.caption}</p>
+      </div>
+    )}
+    </>
   );
 }

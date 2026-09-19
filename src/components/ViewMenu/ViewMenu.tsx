@@ -9,10 +9,9 @@ interface ViewMenuProps {
 const VIEW_LABELS: Record<ViewMode, string> = {
   classic: "Klassischer Stammbaum",
   radial: "Runder Stammbaum",
-  network: "Netzwerkansicht",
 };
 
-const VIEW_ORDER: ViewMode[] = ["classic", "radial", "network"];
+const VIEW_ORDER: ViewMode[] = ["classic", "radial"];
 
 export function ViewMenu({ activeView, onChangeView }: ViewMenuProps) {
   const [isOpen, setIsOpen] = useState(false);

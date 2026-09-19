@@ -38,6 +38,20 @@ describe("App", () => {
     expect(screen.queryByText("Zentrieren")).not.toBeInTheDocument();
   });
 
+  it("lets you jump back to a person who fell out of view in the radial view", async () => {
+    render(<App />);
+    await userEvent.click(screen.getByLabelText("Darstellung wählen"));
+    await userEvent.click(screen.getByText(/Runder Stammbaum/));
+    expect(screen.queryByText("Julia Berger")).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByText("Alle Personen"));
+    await userEvent.click(screen.getByText(/Julia Berger/));
+
+    expect(screen.queryByRole("dialog", { name: "Alle Personen" })).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Julia Berger" })).toBeInTheDocument();
+    expect(screen.getByText("Zentrieren")).toBeInTheDocument();
+  });
+
   it("switches to the radial view via the three-dot menu, hiding descendants that the classic view shows", async () => {
     render(<App />);
     expect(screen.getByText("Ben Berger")).toBeInTheDocument();

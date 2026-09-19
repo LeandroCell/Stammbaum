@@ -7,7 +7,7 @@ function node(personId: string, x: number, y: number): PositionedNode {
   return { personId, x, y, generation: 0 };
 }
 
-describe("buildFamilyConnectors", () => {
+describe("buildFamilyConnectors 'elbow' style (classic view)", () => {
   const family: Family = { id: "fam-1", partnerIds: ["father", "mother"], childrenIds: ["child"] };
 
   it("first connects the two parents to each other with a straight line", () => {
@@ -52,17 +52,6 @@ describe("buildFamilyConnectors", () => {
     expect(segments.find((s) => s.id === "fam-2-drop-b")).toBeTruthy();
   });
 
-  it("draws a direct spoke from the parents' midpoint to the child in 'straight' style", () => {
-    const nodeById = new Map([
-      ["father", node("father", 100, -50)],
-      ["mother", node("mother", -100, -50)],
-      ["child", node("child", 0, 0)],
-    ]);
-    const segments = buildFamilyConnectors([family], nodeById, "straight");
-    expect(segments).toContainEqual({ id: "fam-1-spoke-child", x1: 0, y1: -50, x2: 0, y2: 0 });
-    expect(segments.some((s) => s.id.includes("stem") || s.id.includes("bus"))).toBe(false);
-  });
-
   it("still draws the marriage line for a childless couple", () => {
     const noKids: Family = { id: "fam-3", partnerIds: ["father", "mother"], childrenIds: [] };
     const nodeById = new Map([
@@ -86,6 +75,51 @@ describe("buildFamilyConnectors", () => {
 
   it("skips a family whose members are entirely outside the current layout", () => {
     const segments = buildFamilyConnectors([family], new Map(), "elbow");
+    expect(segments).toEqual([]);
+  });
+});
+
+describe("buildFamilyConnectors 'direct' style (radial view)", () => {
+  const family: Family = { id: "fam-1", partnerIds: ["father", "mother"], childrenIds: ["child"] };
+
+  it("connects each parent straight to the child, without a line between the parents", () => {
+    const nodeById = new Map([
+      ["father", node("father", 100, -50)],
+      ["mother", node("mother", -100, -50)],
+      ["child", node("child", 0, 0)],
+    ]);
+    const segments = buildFamilyConnectors([family], nodeById, "direct");
+
+    expect(segments).toContainEqual({ id: "fam-1-direct-father-child", x1: 100, y1: -50, x2: 0, y2: 0 });
+    expect(segments).toContainEqual({ id: "fam-1-direct-mother-child", x1: -100, y1: -50, x2: 0, y2: 0 });
+    expect(segments.some((s) => s.id.includes("parents") || s.id.includes("stem") || s.id.includes("bus"))).toBe(
+      false
+    );
+    expect(segments).toHaveLength(2);
+  });
+
+  it("connects a single known parent directly to the child", () => {
+    const singleParent: Family = { id: "fam-4", partnerIds: ["mother"], childrenIds: ["child"] };
+    const nodeById = new Map([
+      ["mother", node("mother", 0, -50)],
+      ["child", node("child", 0, 0)],
+    ]);
+    const segments = buildFamilyConnectors([singleParent], nodeById, "direct");
+    expect(segments).toEqual([{ id: "fam-4-direct-mother-child", x1: 0, y1: -50, x2: 0, y2: 0 }]);
+  });
+
+  it("never draws a line between the parents themselves, even without a visible child", () => {
+    const noKids: Family = { id: "fam-3", partnerIds: ["father", "mother"], childrenIds: [] };
+    const nodeById = new Map([
+      ["father", node("father", 100, 0)],
+      ["mother", node("mother", -100, 0)],
+    ]);
+    const segments = buildFamilyConnectors([noKids], nodeById, "direct");
+    expect(segments).toEqual([]);
+  });
+
+  it("skips a family whose members are entirely outside the current layout", () => {
+    const segments = buildFamilyConnectors([family], new Map(), "direct");
     expect(segments).toEqual([]);
   });
 });
