@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-export type ViewMode = "classic" | "radial" | "network";
+export type ViewMode = "classic" | "radial";
 
 interface TreeState {
   centerPersonId: string;

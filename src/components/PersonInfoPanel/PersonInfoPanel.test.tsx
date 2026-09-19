@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { PersonInfoPanel } from "./PersonInfoPanel";
@@ -77,6 +77,67 @@ describe("PersonInfoPanel", () => {
     it("is visible when expanded", () => {
       render(<PersonInfoPanel person={me} onClose={noop} onCenter={noop} onEdit={noop} onDelete={noop} {...collapse} />);
       expect(screen.getByRole("complementary", { hidden: true })).toHaveAttribute("aria-hidden", "false");
+    });
+  });
+
+  describe("Bilder-Popout", () => {
+    const withTwoPhotos = {
+      ...me,
+      photos: [
+        { id: "p1", url: "https://example.com/1.jpg", caption: "Erstes Bild" },
+        { id: "p2", url: "https://example.com/2.jpg", caption: "Zweites Bild" },
+      ],
+    };
+
+    it("opens the clicked photo centered, with its caption shown below", async () => {
+      render(<PersonInfoPanel person={withTwoPhotos} onClose={noop} onCenter={noop} onEdit={noop} onDelete={noop} {...collapse} />);
+      await userEvent.click(screen.getByLabelText("Bild vergrößern: Zweites Bild"));
+
+      const dialog = screen.getByRole("dialog", { name: "Bild" });
+      expect(dialog).toBeInTheDocument();
+      expect(within(dialog).getByAltText("Zweites Bild")).toHaveAttribute("src", "https://example.com/2.jpg");
+      expect(within(dialog).getByText("Zweites Bild")).toBeInTheDocument();
+    });
+
+    it("cycles through multiple photos with next/previous", async () => {
+      render(<PersonInfoPanel person={withTwoPhotos} onClose={noop} onCenter={noop} onEdit={noop} onDelete={noop} {...collapse} />);
+      await userEvent.click(screen.getByLabelText("Bild vergrößern: Erstes Bild"));
+
+      await userEvent.click(screen.getByLabelText("Nächstes Bild"));
+      expect(screen.getByText("Zweites Bild")).toBeInTheDocument();
+
+      // Wraps around past the last photo.
+      await userEvent.click(screen.getByLabelText("Nächstes Bild"));
+      expect(screen.getByText("Erstes Bild")).toBeInTheDocument();
+
+      await userEvent.click(screen.getByLabelText("Vorheriges Bild"));
+      expect(screen.getByText("Zweites Bild")).toBeInTheDocument();
+    });
+
+    it("hides prev/next controls for a single photo", async () => {
+      render(<PersonInfoPanel person={me} onClose={noop} onCenter={noop} onEdit={noop} onDelete={noop} {...collapse} />);
+      await userEvent.click(screen.getByLabelText(/Bild vergrößern/));
+      expect(screen.queryByLabelText("Nächstes Bild")).not.toBeInTheDocument();
+      expect(screen.queryByLabelText("Vorheriges Bild")).not.toBeInTheDocument();
+    });
+
+    it("closes when the close button is clicked", async () => {
+      render(<PersonInfoPanel person={me} onClose={noop} onCenter={noop} onEdit={noop} onDelete={noop} {...collapse} />);
+      await userEvent.click(screen.getByLabelText(/Bild vergrößern/));
+      await userEvent.click(screen.getByLabelText("Bild schließen"));
+      expect(screen.queryByRole("dialog", { name: "Bild" })).not.toBeInTheDocument();
+    });
+
+    it("resets when a different person is shown", async () => {
+      const { rerender } = render(
+        <PersonInfoPanel person={withTwoPhotos} onClose={noop} onCenter={noop} onEdit={noop} onDelete={noop} {...collapse} />
+      );
+      await userEvent.click(screen.getByLabelText("Bild vergrößern: Erstes Bild"));
+      expect(screen.getByRole("dialog", { name: "Bild" })).toBeInTheDocument();
+
+      const mother = people.find((p) => p.id === "mother")!;
+      rerender(<PersonInfoPanel person={mother} onClose={noop} onCenter={noop} onEdit={noop} onDelete={noop} {...collapse} />);
+      expect(screen.queryByRole("dialog", { name: "Bild" })).not.toBeInTheDocument();
     });
   });
 

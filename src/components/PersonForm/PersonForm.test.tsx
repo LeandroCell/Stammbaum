@@ -121,7 +121,7 @@ describe("PersonForm", () => {
     await userEvent.click(screen.getByText("+ Dokument hinzufügen"));
     const docTitleInputs = screen.getAllByLabelText("Titel*");
     await userEvent.type(docTitleInputs[docTitleInputs.length - 1], "Pass");
-    await userEvent.type(screen.getByLabelText(/^Link\*/), "https://example.com/pass.pdf");
+    await userEvent.type(screen.getByLabelText(/Link\*/), "https://example.com/pass.pdf");
 
     await userEvent.type(screen.getByLabelText(/^Vorname/), "Nina");
     await userEvent.type(screen.getByLabelText(/^Nachname/), "Berger");
@@ -131,6 +131,76 @@ describe("PersonForm", () => {
       expect.objectContaining({
         sources: [expect.objectContaining({ title: "Geburtsurkunde" })],
         documents: [expect.objectContaining({ title: "Pass", url: "https://example.com/pass.pdf" })],
+      })
+    );
+  });
+
+  it("fills the photo URL from an uploaded file, keeping the caption field usable", async () => {
+    const onSubmit = vi.fn();
+    render(
+      <PersonForm
+        mode="create"
+        people={people}
+        initialValues={emptyPersonFormValues()}
+        onSubmit={onSubmit}
+        onCancel={() => {}}
+      />
+    );
+    await userEvent.click(screen.getByText("+ Bild hinzufügen"));
+    const file = new File(["pixel"], "urlaub.png", { type: "image/png" });
+    await userEvent.upload(screen.getByLabelText("Datei hochladen"), file);
+    await userEvent.type(screen.getByLabelText(/Bildunterschrift/), "Urlaub 2020");
+
+    expect(await screen.findByDisplayValue(/^data:image\/png;base64,/)).toBeInTheDocument();
+
+    await userEvent.type(screen.getByLabelText(/^Vorname/), "Nina");
+    await userEvent.type(screen.getByLabelText(/^Nachname/), "Berger");
+    await userEvent.click(screen.getByText("Speichern"));
+
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        photos: [
+          expect.objectContaining({
+            url: expect.stringMatching(/^data:image\/png;base64,/),
+            caption: "Urlaub 2020",
+          }),
+        ],
+      })
+    );
+  });
+
+  it("fills the document link from an uploaded file and auto-detects its type", async () => {
+    const onSubmit = vi.fn();
+    render(
+      <PersonForm
+        mode="create"
+        people={people}
+        initialValues={emptyPersonFormValues()}
+        onSubmit={onSubmit}
+        onCancel={() => {}}
+      />
+    );
+    await userEvent.click(screen.getByText("+ Dokument hinzufügen"));
+    await userEvent.type(screen.getByLabelText("Titel*"), "Pass");
+    const file = new File(["%PDF-1.4"], "pass.pdf", { type: "application/pdf" });
+    await userEvent.upload(screen.getByLabelText("Datei hochladen"), file);
+
+    expect(await screen.findByDisplayValue(/^data:application\/pdf;base64,/)).toBeInTheDocument();
+    expect(screen.getByLabelText("Typ")).toHaveValue("application/pdf");
+
+    await userEvent.type(screen.getByLabelText(/^Vorname/), "Nina");
+    await userEvent.type(screen.getByLabelText(/^Nachname/), "Berger");
+    await userEvent.click(screen.getByText("Speichern"));
+
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        documents: [
+          expect.objectContaining({
+            title: "Pass",
+            url: expect.stringMatching(/^data:application\/pdf;base64,/),
+            type: "application/pdf",
+          }),
+        ],
       })
     );
   });

@@ -4,6 +4,7 @@ import { useTreeStore, type ViewMode } from "./state/useTreeStore";
 import { TreeCanvas } from "./components/TreeCanvas/TreeCanvas";
 import type { ConnectorStyle } from "./components/TreeCanvas/familyConnectors";
 import { PersonInfoPanel } from "./components/PersonInfoPanel/PersonInfoPanel";
+import { PersonBrowser } from "./components/PersonBrowser/PersonBrowser";
 import { ViewMenu } from "./components/ViewMenu/ViewMenu";
 import { LoginScreen } from "./components/LoginScreen/LoginScreen";
 import {
@@ -14,7 +15,6 @@ import {
 } from "./components/PersonForm/PersonForm";
 import { classicLayout } from "./layout/classicLayout";
 import { radialLayout } from "./layout/radialLayout";
-import { networkLayout } from "./layout/networkLayout";
 import type { LayoutFn } from "./layout/layout.types";
 import type { DocumentRef, Photo, Source } from "./data/types";
 import { exportGedcom } from "./data/gedcomExport";
@@ -23,16 +23,14 @@ import { pickDefaultCenter } from "./data/familyGraph";
 const LAYOUTS: Record<ViewMode, LayoutFn> = {
   classic: classicLayout,
   radial: radialLayout,
-  network: networkLayout,
 };
 
 // Elbow (right-angled parent/child stems) matches the generation-stacked
-// classic and network layouts; the radial fan uses straight spokes instead
-// so connectors match its geometry.
+// classic layout; the radial fan connects each parent directly to the
+// child instead, without a line between the parents themselves.
 const EDGE_STYLES: Record<ViewMode, ConnectorStyle> = {
   classic: "elbow",
-  radial: "straight",
-  network: "elbow",
+  radial: "direct",
 };
 
 type FormState = { mode: "create" } | { mode: "edit"; personId: string };
@@ -104,6 +102,7 @@ function App() {
   const toggleShowSiblings = useTreeStore((s) => s.toggleShowSiblings);
 
   const [formState, setFormState] = useState<FormState | null>(null);
+  const [showPersonBrowser, setShowPersonBrowser] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -177,6 +176,12 @@ function App() {
     setFormState(null);
   }
 
+  function handleSelectFromBrowser(personId: string) {
+    setCenterPerson(personId);
+    selectPerson(personId);
+    setShowPersonBrowser(false);
+  }
+
   async function handleDelete(personId: string) {
     const fallbackPerson = people.find((p) => p.id !== personId);
     await deletePerson(personId);
@@ -197,6 +202,13 @@ function App() {
             className="rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700"
           >
             + Neue Person
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowPersonBrowser(true)}
+            className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          >
+            Alle Personen
           </button>
           <button
             type="button"
@@ -290,6 +302,14 @@ function App() {
           }
           onSubmit={handleFormSubmit}
           onCancel={() => setFormState(null)}
+        />
+      )}
+
+      {showPersonBrowser && (
+        <PersonBrowser
+          people={people}
+          onSelect={handleSelectFromBrowser}
+          onClose={() => setShowPersonBrowser(false)}
         />
       )}
     </div>

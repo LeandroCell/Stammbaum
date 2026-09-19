@@ -22,8 +22,7 @@ export interface LayoutResult {
 export interface LayoutOptions {
   // Whether to include siblings (the center's own, and every ancestor's) in
   // the layout. Only classicLayout honors this — radialLayout never shows
-  // siblings (pure ancestor fan) and networkLayout always shows them (its
-  // whole point is the full reachable family graph), regardless of this flag.
+  // siblings (pure ancestor fan), regardless of this flag.
   showSiblings?: boolean;
 }
 
