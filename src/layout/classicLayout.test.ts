@@ -70,6 +70,29 @@ describe("classicLayout partner's siblings", () => {
   });
 });
 
+describe("classicLayout ancestor siblings", () => {
+  it("keeps each grandparent's siblings next to that grandparent, on the outer side of the couple", () => {
+    const person = (id: string) => ({ id, firstName: id, lastName: "X" });
+    const r = classicLayout(
+      ["b", "c", "i", "s", "andrea", "franco", "martina", "anja", "daniela", "chiara", "emilia"].map(person),
+      [
+        { id: "f1", partnerIds: ["b", "c"], childrenIds: ["andrea", "franco"] },
+        { id: "f2", partnerIds: ["i", "s"], childrenIds: ["anja", "daniela", "martina"] },
+        { id: "f3", partnerIds: ["franco", "martina"], childrenIds: ["chiara"] },
+        { id: "f4", partnerIds: ["chiara"], childrenIds: ["emilia"] },
+      ],
+      "emilia"
+    );
+    const x = new Map(r.nodes.map((n) => [n.personId, n.x]));
+    const order = ["anja", "daniela", "martina", "franco", "andrea"].sort((a, b) => x.get(a)! - x.get(b)!);
+    // franco is the father (right), martina the mother (left); each side's siblings stay outside.
+    expect(order.indexOf("martina")).toBeGreaterThan(order.indexOf("anja"));
+    expect(order.indexOf("martina")).toBeGreaterThan(order.indexOf("daniela"));
+    expect(order.indexOf("franco")).toBeLessThan(order.indexOf("andrea"));
+    expect(order.indexOf("martina") + 1).toBe(order.indexOf("franco"));
+  });
+});
+
 describe("classicLayout", () => {
   const result = classicLayout(people, families, "me");
   const nodeById = new Map(result.nodes.map((n) => [n.personId, n]));

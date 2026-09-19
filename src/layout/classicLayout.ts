@@ -6,55 +6,84 @@ const NODE_SPACING = 220;
 const MAX_ANCESTOR_GENERATIONS = 5;
 const MAX_DESCENDANT_GENERATIONS = 5;
 
+// Positions are in slot units (1 slot = NODE_SPACING); `left`/`right` bound
+// the whole block so neighbouring blocks can be laid side by side without
+// ever overlapping, at any generation.
+interface AncestorBlock {
+  x: number;
+  left: number;
+  right: number;
+  items: { personId: string; generation: number; x: number }[];
+}
+
+function collectSpine(personId: string, generation: number, maps: FamilyMaps, spine: Set<string>) {
+  if (spine.has(personId)) return;
+  spine.add(personId);
+  const family = generation < MAX_ANCESTOR_GENERATIONS ? maps.familyByChildId.get(personId) : undefined;
+  for (const parentId of family?.partnerIds ?? []) collectSpine(parentId, generation + 1, maps, spine);
+}
+
+// Lays out a person, their siblings and everything above them. The person's
+// siblings form one contiguous group with them, on the outer side of the
+// couple (`siblingSide`: mother → left, father → right), so aunts/uncles
+// stand next to the parent they belong to, not at the far edge of the row.
 function layoutAncestors(
   personId: string,
   generation: number,
+  siblingSide: "left" | "right",
   maps: FamilyMaps,
-  nextLeafX: { value: number },
-  nodes: Map<string, PositionedNode>,
+  spine: Set<string>,
   edges: LayoutEdge[]
-): number {
-  const parentFamily =
-    generation < MAX_ANCESTOR_GENERATIONS ? maps.familyByChildId.get(personId) : undefined;
+): AncestorBlock {
+  const parentFamily = generation < MAX_ANCESTOR_GENERATIONS ? maps.familyByChildId.get(personId) : undefined;
   const [fatherId, motherId] = parentFamily
     ? orderParentsFatherFirst(parentFamily.partnerIds, maps.peopleById)
     : [undefined, undefined];
+  const siblingIds = (parentFamily?.childrenIds ?? []).filter(
+    (id) => id !== personId && !spine.has(id) && maps.peopleById.has(id)
+  );
 
-  if (!fatherId && !motherId) {
-    const x = nextLeafX.value;
-    nextLeafX.value += NODE_SPACING;
-    // ponytail: "+ 0" normalizes the -0 that `-generation` produces when
-    // generation is 0 (the center person) — a JS negative-zero artifact,
-    // not a geometry change (-0 === 0 numerically, but fails Object.is-based
-    // matchers like toMatchObject).
-    nodes.set(personId, { personId, x, y: -generation * GENERATION_HEIGHT + 0, generation: -generation + 0 });
-    return x;
-  }
+  const mother = motherId ? layoutAncestors(motherId, generation + 1, "left", maps, spine, edges) : undefined;
+  const father = fatherId ? layoutAncestors(fatherId, generation + 1, "right", maps, spine, edges) : undefined;
+  // Father's block goes directly right of the mother's block.
+  const fatherShift = mother && father ? mother.right - father.left : 0;
+  const parents = [mother, father].filter((b): b is AncestorBlock => b !== undefined);
+  const parentXs = [mother?.x, father && father.x + fatherShift].filter((v): v is number => v !== undefined);
 
-  const motherX = motherId
-    ? layoutAncestors(motherId, generation + 1, maps, nextLeafX, nodes, edges)
-    : undefined;
-  const fatherX = fatherId
-    ? layoutAncestors(fatherId, generation + 1, maps, nextLeafX, nodes, edges)
-    : undefined;
+  const items: AncestorBlock["items"] = [];
+  let left = Infinity;
+  let right = -Infinity;
+  parents.forEach((block) => {
+    const shift = block === father ? fatherShift : 0;
+    for (const item of block.items) items.push({ ...item, x: item.x + shift });
+    left = Math.min(left, block.left + shift);
+    right = Math.max(right, block.right + shift);
+  });
+
+  const mid = parentXs.length ? parentXs.reduce((a, b) => a + b, 0) / parentXs.length : 0;
+  const half = siblingIds.length / 2;
+  // ponytail: "+ 0" normalizes -0 (JS negative zero from `-generation`).
+  const personX = siblingSide === "left" ? mid + half : mid - half;
+  const y = generation;
+  items.push({ personId, generation: -y + 0, x: personX });
+  siblingIds.forEach((siblingId, i) => {
+    const x = siblingSide === "left" ? personX - (i + 1) : personX + (i + 1);
+    items.push({ personId: siblingId, generation: -y + 0, x });
+    for (const parentId of parentFamily!.partnerIds) {
+      edges.push({ id: `${parentId}->${siblingId}`, fromPersonId: parentId, toPersonId: siblingId, kind: "parent-child" });
+    }
+  });
+  const groupLeft = siblingSide === "left" ? personX - siblingIds.length : personX;
+  const groupRight = siblingSide === "left" ? personX : personX + siblingIds.length;
+  left = Math.min(left, groupLeft - 0.5);
+  right = Math.max(right, groupRight + 0.5);
 
   for (const parentId of [fatherId, motherId]) {
-    if (parentId) {
-      edges.push({
-        id: `${parentId}->${personId}`,
-        fromPersonId: parentId,
-        toPersonId: personId,
-        kind: "parent-child",
-      });
-    }
+    if (parentId) edges.push({ id: `${parentId}->${personId}`, fromPersonId: parentId, toPersonId: personId, kind: "parent-child" });
   }
-
-  const xs = [motherX, fatherX].filter((v): v is number => v !== undefined);
-  const x = xs.reduce((a, b) => a + b, 0) / xs.length;
-  // ponytail: same -0 normalization as the leaf branch above.
-  nodes.set(personId, { personId, x, y: -generation * GENERATION_HEIGHT + 0, generation: -generation + 0 });
-  return x;
+  return { x: personX, left, right, items };
 }
+
 
 // Widens the ancestor spine to include siblings at every generation (the
 // center's own siblings, aunts/uncles, great-aunts/uncles, ...) so a person
@@ -213,8 +242,18 @@ export const classicLayout: LayoutFn = (people, families, centerPersonId) => {
   const nodes = new Map<string, PositionedNode>();
   const edges: LayoutEdge[] = [];
 
-  const ancestorLeafX = { value: 0 };
-  const centerX = layoutAncestors(centerPersonId, 0, maps, ancestorLeafX, nodes, edges);
+  const spine = new Set<string>();
+  collectSpine(centerPersonId, 0, maps, spine);
+  const ancestors = layoutAncestors(centerPersonId, 0, "left", maps, spine, edges);
+  for (const item of ancestors.items) {
+    nodes.set(item.personId, {
+      personId: item.personId,
+      x: item.x * NODE_SPACING,
+      y: item.generation * GENERATION_HEIGHT + 0,
+      generation: item.generation,
+    });
+  }
+  const centerX = ancestors.x * NODE_SPACING;
 
   const rootUnit = buildDescendantUnit(centerPersonId, 0, maps, new Set());
   // Place the descendant tree relative to slot 0, then shift it so the
