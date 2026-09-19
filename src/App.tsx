@@ -16,6 +16,7 @@ import { radialLayout } from "./layout/radialLayout";
 import { networkLayout } from "./layout/networkLayout";
 import type { LayoutFn } from "./layout/layout.types";
 import { exportGedcom } from "./data/gedcomExport";
+import { pickDefaultCenter } from "./data/familyGraph";
 
 const LAYOUTS: Record<ViewMode, LayoutFn> = {
   classic: classicLayout,
@@ -93,7 +94,7 @@ function App() {
     const imported = useFamilyData.getState();
     if (!imported.error && imported.people.length > 0) {
       selectPerson(null);
-      setCenterPerson(imported.people[0].id);
+      setCenterPerson(pickDefaultCenter(imported.people, imported.families) ?? imported.people[0].id);
     }
   }
 

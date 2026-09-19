@@ -1,9 +1,13 @@
 import type { LayoutEdge, LayoutFn, PositionedNode } from "./layout.types";
 import { buildFamilyMaps } from "../data/familyGraph";
 
-const GENERATION_HEIGHT = 160;
+const GENERATION_GAP = 90;
+const ROW_HEIGHT = 110;
 const NODE_SPACING = 220;
 const MAX_GENERATIONS = 5;
+// A generation with dozens of relatives would otherwise be one enormous
+// row, forcing the camera down to its minimum zoom (unreadable). Wrap it.
+const MAX_PER_ROW = 10;
 
 // ponytail: deterministic breadth-first layered layout, not a live force
 // simulation (see spec section 4 — physics would flicker/jitter on pan and
@@ -76,19 +80,32 @@ export const networkLayout: LayoutFn = (people, families, centerPersonId) => {
     idsByGeneration.set(generation, bucket);
   }
 
+  // Generations stack top to bottom (oldest first); each one is split into
+  // as many wrapped rows as needed, and every generation block starts below
+  // the previous one's last row, so wrapped rows can never run into the
+  // next generation.
   const nodes: PositionedNode[] = [];
-  for (const [generation, ids] of idsByGeneration) {
+  let cursorY = 0;
+  const generations = Array.from(idsByGeneration.keys()).sort((a, b) => a - b);
+  for (const generation of generations) {
+    const ids = idsByGeneration.get(generation)!;
     ids.forEach((personId, index) => {
-      const x = (index - (ids.length - 1) / 2) * NODE_SPACING;
-      nodes.push({ personId, x, y: generation * GENERATION_HEIGHT, generation });
+      const row = Math.floor(index / MAX_PER_ROW);
+      const rowStart = row * MAX_PER_ROW;
+      const rowCount = Math.min(MAX_PER_ROW, ids.length - rowStart);
+      const x = (index - rowStart - (rowCount - 1) / 2) * NODE_SPACING;
+      nodes.push({ personId, x, y: cursorY + row * ROW_HEIGHT, generation });
     });
+    cursorY += Math.ceil(ids.length / MAX_PER_ROW) * ROW_HEIGHT + GENERATION_GAP;
   }
 
-  // Recenter so the center person always sits at x=0, regardless of how
+  // Recenter so the center person always sits at (0, 0), regardless of how
   // many same-generation relatives (siblings, in-laws) were discovered
   // before or after them within their own layer.
-  const offsetX = nodes.find((n) => n.personId === centerPersonId)?.x ?? 0;
-  const recentered = nodes.map((n) => ({ ...n, x: n.x - offsetX }));
+  const centerNode = nodes.find((n) => n.personId === centerPersonId);
+  const offsetX = centerNode?.x ?? 0;
+  const offsetY = centerNode?.y ?? 0;
+  const recentered = nodes.map((n) => ({ ...n, x: n.x - offsetX, y: n.y - offsetY }));
 
   return { nodes: recentered, edges };
 };

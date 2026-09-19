@@ -1,6 +1,27 @@
 import { describe, it, expect } from "vitest";
 import { networkLayout } from "./networkLayout";
 import { people, families } from "../data/sampleData";
+import { buildDynasty, countOverlaps } from "./largeTree.fixture";
+
+describe("networkLayout large trees", () => {
+  const dynasty = buildDynasty(5);
+  const result = networkLayout(dynasty.people, dynasty.families, "p1");
+
+  it("wraps wide generations into several rows instead of one enormous row", () => {
+    const maxWidth = Math.max(...result.nodes.map((n) => n.x)) - Math.min(...result.nodes.map((n) => n.x));
+    expect(maxWidth).toBeLessThanOrEqual(9 * 220);
+  });
+
+  it("never overlaps cards and keeps generations in order top to bottom", () => {
+    expect(countOverlaps(result.nodes)).toBe(0);
+    const yByGeneration = new Map<number, number[]>();
+    for (const n of result.nodes) yByGeneration.set(n.generation, [...(yByGeneration.get(n.generation) ?? []), n.y]);
+    const gens = [...yByGeneration.keys()].sort((a, b) => a - b);
+    for (let i = 1; i < gens.length; i++) {
+      expect(Math.min(...yByGeneration.get(gens[i])!)).toBeGreaterThan(Math.max(...yByGeneration.get(gens[i - 1])!));
+    }
+  });
+});
 
 describe("networkLayout", () => {
   const result = networkLayout(people, families, "me");

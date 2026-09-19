@@ -6,6 +6,16 @@ const PARTNER_SPACING = 200;
 const SIBLING_ROW_SPACING = 200;
 const SIBLING_ROW_GAP = 140;
 const MAX_GENERATIONS = 5;
+const MIN_ARC_PER_CARD = 200;
+
+// A ring at generation g holds up to 2^g ancestors spread over a half circle,
+// so its radius has to grow with that count (arc length = radius * PI must fit
+// 2^g cards) — a purely linear radius makes the outer rings overlap from
+// generation 4 on.
+function ringRadius(generation: number): number {
+  if (generation === 0) return 0;
+  return Math.max(generation * RING_RADIUS_STEP, (2 ** generation * MIN_ARC_PER_CARD) / Math.PI);
+}
 
 // ponytail: pure ancestor fan chart, per spec section 4 — no descendants,
 // no siblings. The fan only spans the top semicircle (angle -90°..+90°,
@@ -26,7 +36,7 @@ function layoutRadialAncestors(
   edges: LayoutEdge[]
 ): void {
   const angle = (angleStart + angleEnd) / 2;
-  const radius = generation * RING_RADIUS_STEP;
+  const radius = ringRadius(generation);
   const x = radius * Math.sin(angle);
   const y = -radius * Math.cos(angle);
   // ponytail: "+ 0" normalizes the -0 that `-generation` produces for the

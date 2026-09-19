@@ -106,38 +106,96 @@ function addAncestorSiblings(
   }
 }
 
-function layoutDescendants(
+interface DescendantUnit {
+  personId: string;
+  partnerIds: string[];
+  children: DescendantUnit[];
+  width: number;
+}
+
+// Builds the descendant tree bottom-up: every person plus their partner(s)
+// forms one "unit" (partners sit directly to the right of the person), and
+// a unit's width is the larger of its own width and the total width of its
+// children's units. Placing then centers each unit over its children, so
+// parents sit above their kids instead of at the left edge of their
+// subtree — the difference between a readable tree and long, crossing
+// edges once a family has more than a couple of generations.
+//
+// `visited` guards against cycles/duplicates in real-world data (a person
+// listed as their own descendant, or the same child under two families).
+function buildDescendantUnit(
   personId: string,
   generation: number,
-  centerX: number,
   maps: FamilyMaps,
-  nextLeafX: { value: number },
-  nodes: Map<string, PositionedNode>,
-  edges: LayoutEdge[]
-): void {
-  if (generation > MAX_DESCENDANT_GENERATIONS) return;
+  visited: Set<string>
+): DescendantUnit {
+  visited.add(personId);
   const partnerFamilies = maps.familiesByPartnerId.get(personId) ?? [];
-  const childIds = partnerFamilies.flatMap((f) => f.childrenIds);
+  const partnerIds: string[] = [];
+  for (const family of partnerFamilies) {
+    for (const id of family.partnerIds) {
+      if (id !== personId && !visited.has(id) && maps.peopleById.has(id) && !partnerIds.includes(id)) {
+        partnerIds.push(id);
+      }
+    }
+  }
+  partnerIds.forEach((id) => visited.add(id));
 
-  if (!nodes.has(personId)) {
-    nodes.set(personId, { personId, x: centerX, y: generation * GENERATION_HEIGHT, generation });
+  const children: DescendantUnit[] = [];
+  if (generation < MAX_DESCENDANT_GENERATIONS) {
+    for (const family of partnerFamilies) {
+      for (const childId of family.childrenIds) {
+        if (visited.has(childId) || !maps.peopleById.has(childId)) continue;
+        children.push(buildDescendantUnit(childId, generation + 1, maps, visited));
+      }
+    }
   }
 
-  // ponytail: children are spaced evenly left-to-right without being
-  // perfectly re-centered under multiple siblings; fine for the sample
-  // data's small families, revisit with a tidy-tree pass for large ones.
-  childIds.forEach((childId) => {
-    edges.push({
-      id: `${personId}->${childId}`,
-      fromPersonId: personId,
-      toPersonId: childId,
-      kind: "parent-child",
-    });
-    const x = nextLeafX.value;
-    nextLeafX.value += NODE_SPACING;
-    nodes.set(childId, { personId: childId, x, y: (generation + 1) * GENERATION_HEIGHT, generation: generation + 1 });
-    layoutDescendants(childId, generation + 1, x, maps, nextLeafX, nodes, edges);
+  const ownWidth = 1 + partnerIds.length;
+  const childrenWidth = children.reduce((sum, c) => sum + c.width, 0);
+  return { personId, partnerIds, children, width: Math.max(ownWidth, childrenWidth) };
+}
+
+// Places a unit (and recursively its children) starting at slot `left`,
+// returning the x of the unit's person so callers can draw edges to it.
+function placeDescendantUnit(
+  unit: DescendantUnit,
+  generation: number,
+  left: number,
+  nodes: Map<string, PositionedNode>,
+  edges: LayoutEdge[]
+): number {
+  const ownWidth = 1 + unit.partnerIds.length;
+  const y = generation * GENERATION_HEIGHT;
+
+  const childrenWidth = unit.children.reduce((sum, c) => sum + c.width, 0);
+  const childrenLeft = left + (unit.width - childrenWidth) / 2;
+  let cursor = childrenLeft;
+  const childXs = unit.children.map((child) => {
+    const x = placeDescendantUnit(child, generation + 1, cursor, nodes, edges);
+    cursor += child.width;
+    return x;
   });
+
+  // Center the person+partners unit over its children's span (or over its
+  // own slot range when it has no children).
+  const spanLeft = childXs.length > 0 ? (childXs[0] + childXs[childXs.length - 1]) / 2 - (ownWidth - 1) / 2 : left + (unit.width - ownWidth) / 2;
+  const personX = spanLeft * NODE_SPACING;
+
+  if (!nodes.has(unit.personId)) {
+    nodes.set(unit.personId, { personId: unit.personId, x: personX, y, generation });
+  }
+  unit.partnerIds.forEach((partnerId, index) => {
+    nodes.set(partnerId, { personId: partnerId, x: personX + NODE_SPACING * (index + 1), y, generation });
+    edges.push({ id: `${unit.personId}-${partnerId}`, fromPersonId: unit.personId, toPersonId: partnerId, kind: "partner" });
+  });
+  unit.children.forEach((child) => {
+    for (const parentId of [unit.personId, ...unit.partnerIds]) {
+      edges.push({ id: `${parentId}->${child.personId}`, fromPersonId: parentId, toPersonId: child.personId, kind: "parent-child" });
+    }
+  });
+
+  return personX / NODE_SPACING;
 }
 
 export const classicLayout: LayoutFn = (people, families, centerPersonId) => {
@@ -148,27 +206,21 @@ export const classicLayout: LayoutFn = (people, families, centerPersonId) => {
   const ancestorLeafX = { value: 0 };
   const centerX = layoutAncestors(centerPersonId, 0, maps, ancestorLeafX, nodes, edges);
 
-  const centerFamilies = maps.familiesByPartnerId.get(centerPersonId) ?? [];
-  const partnerIds = centerFamilies
-    .flatMap((f) => f.partnerIds)
-    .filter((id) => id !== centerPersonId);
-  partnerIds.forEach((partnerId, index) => {
-    nodes.set(partnerId, {
-      personId: partnerId,
-      x: centerX + NODE_SPACING * (index + 1),
-      y: 0,
-      generation: 0,
-    });
-    edges.push({
-      id: `${centerPersonId}-${partnerId}`,
-      fromPersonId: centerPersonId,
-      toPersonId: partnerId,
-      kind: "partner",
-    });
-  });
-
-  const descendantLeafX = { value: centerX - NODE_SPACING / 2 };
-  layoutDescendants(centerPersonId, 0, centerX, maps, descendantLeafX, nodes, edges);
+  const rootUnit = buildDescendantUnit(centerPersonId, 0, maps, new Set());
+  // Place the descendant tree relative to slot 0, then shift it so the
+  // center person lands exactly where the ancestor layout put them.
+  const scratch = new Map<string, PositionedNode>();
+  const scratchEdges: LayoutEdge[] = [];
+  const centerSlotX = placeDescendantUnit(rootUnit, 0, 0, scratch, scratchEdges);
+  const shift = centerX - centerSlotX * NODE_SPACING;
+  for (const node of scratch.values()) {
+    // Skip anyone the ancestor pass already placed (the center, or a
+    // relative who is both an ancestor and a descendant's spouse) — moving
+    // them would break the ancestor rows.
+    if (nodes.has(node.personId)) continue;
+    nodes.set(node.personId, { ...node, x: node.x + shift });
+  }
+  edges.push(...scratchEdges);
 
   addAncestorSiblings(nodes, edges, maps);
 

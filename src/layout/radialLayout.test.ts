@@ -1,6 +1,17 @@
 import { describe, it, expect } from "vitest";
 import { radialLayout } from "./radialLayout";
 import { people, families } from "../data/sampleData";
+import { buildDynasty, countOverlaps } from "./largeTree.fixture";
+
+describe("radialLayout large trees", () => {
+  it("keeps deep generations from overlapping by growing the ring radius with the slot count", () => {
+    const dynasty = buildDynasty(6);
+    const deepest = dynasty.people[dynasty.people.length - 1].id;
+    const result = radialLayout(dynasty.people, dynasty.families, deepest);
+    expect(result.nodes.length).toBeGreaterThan(10);
+    expect(countOverlaps(result.nodes)).toBe(0);
+  });
+});
 
 describe("radialLayout", () => {
   const result = radialLayout(people, families, "me");

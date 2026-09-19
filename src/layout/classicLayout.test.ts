@@ -1,6 +1,56 @@
 import { describe, it, expect } from "vitest";
 import { classicLayout } from "./classicLayout";
 import { people, families } from "../data/sampleData";
+import { buildDynasty, countOverlaps } from "./largeTree.fixture";
+
+describe("classicLayout large trees", () => {
+  const dynasty = buildDynasty();
+
+  it("shows every descendant and in-law of the root couple, without overlapping cards", () => {
+    const result = classicLayout(dynasty.people, dynasty.families, "p1");
+    expect(result.nodes).toHaveLength(dynasty.people.length);
+    expect(countOverlaps(result.nodes)).toBe(0);
+  });
+
+  it("has no overlapping cards when centered on a deep descendant either", () => {
+    const deep = dynasty.people[dynasty.people.length - 1].id;
+    expect(countOverlaps(classicLayout(dynasty.people, dynasty.families, deep).nodes)).toBe(0);
+  });
+
+  it("centers each parent above their children instead of at the left edge of the subtree", () => {
+    const result = classicLayout(dynasty.people, dynasty.families, "p1");
+    const byId = new Map(result.nodes.map((n) => [n.personId, n]));
+    const childXs = dynasty.families[0].childrenIds.map((id) => byId.get(id)!.x);
+    const childCenter = (Math.min(...childXs) + Math.max(...childXs)) / 2;
+    const rootCoupleCenter = (byId.get("p1")!.x + byId.get("p2")!.x) / 2;
+    expect(Math.abs(rootCoupleCenter - childCenter)).toBeLessThan(1);
+  });
+
+  it("shows a descendant's spouse next to them and connects the spouse to the children", () => {
+    const result = classicLayout(dynasty.people, dynasty.families, "p1");
+    const married = dynasty.families.find((f) => f.id !== "f1" && f.childrenIds.length > 0)!;
+    const [a, b] = married.partnerIds.map((id) => result.nodes.find((n) => n.personId === id)!);
+    expect(a.y).toBe(b.y);
+    expect(Math.abs(a.x - b.x)).toBe(220);
+    const edgeKeys = new Set(result.edges.map((e) => `${e.fromPersonId}->${e.toPersonId}`));
+    for (const child of married.childrenIds) {
+      expect(edgeKeys.has(`${married.partnerIds[0]}->${child}`)).toBe(true);
+      expect(edgeKeys.has(`${married.partnerIds[1]}->${child}`)).toBe(true);
+    }
+  });
+
+  it("terminates on cyclic data instead of recursing forever", () => {
+    const cyclePeople = [
+      { id: "a", firstName: "A", lastName: "X" },
+      { id: "b", firstName: "B", lastName: "X" },
+    ];
+    const cycleFamilies = [
+      { id: "f1", partnerIds: ["a"], childrenIds: ["b"] },
+      { id: "f2", partnerIds: ["b"], childrenIds: ["a"] },
+    ];
+    expect(() => classicLayout(cyclePeople, cycleFamilies, "a")).not.toThrow();
+  });
+});
 
 describe("classicLayout", () => {
   const result = classicLayout(people, families, "me");
