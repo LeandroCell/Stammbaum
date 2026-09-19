@@ -32,4 +32,15 @@ describe("PersonCard", () => {
     await userEvent.click(screen.getByRole("button"));
     expect(onSelect).toHaveBeenCalledWith("me");
   });
+
+  it("also selects the person on double-click", async () => {
+    const onSelect = vi.fn();
+    render(
+      <svg>
+        <PersonCard person={person} x={0} y={0} isSelected={false} onSelect={onSelect} />
+      </svg>
+    );
+    await userEvent.dblClick(screen.getByRole("button"));
+    expect(onSelect).toHaveBeenCalledWith("me");
+  });
 });

@@ -86,6 +86,13 @@ describe("App", () => {
     expect(screen.getByRole("complementary", { hidden: true })).toHaveAttribute("aria-hidden", "false");
   });
 
+  it("opens the info panel on double-click and doesn't zoom the canvas", async () => {
+    render(<App />);
+    await userEvent.dblClick(screen.getByText("Thomas Berger"));
+    expect(screen.getByRole("complementary", { hidden: true })).toHaveAttribute("aria-hidden", "false");
+    expect(screen.getByText("Zentrieren")).toBeInTheDocument();
+  });
+
   describe("deleting a person", () => {
     afterEach(() => {
       vi.restoreAllMocks();
