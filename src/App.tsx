@@ -55,6 +55,8 @@ function App() {
   const selectPerson = useTreeStore((s) => s.selectPerson);
   const setCenterPerson = useTreeStore((s) => s.setCenterPerson);
   const setActiveView = useTreeStore((s) => s.setActiveView);
+  const isPanelCollapsed = useTreeStore((s) => s.isPanelCollapsed);
+  const togglePanelCollapsed = useTreeStore((s) => s.togglePanelCollapsed);
 
   const [formState, setFormState] = useState<FormState | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -216,6 +218,8 @@ function App() {
         }}
         onEdit={(personId) => setFormState({ mode: "edit", personId })}
         onDelete={handleDelete}
+        isCollapsed={isPanelCollapsed}
+        onToggleCollapsed={togglePanelCollapsed}
       />
 
       {formState && (

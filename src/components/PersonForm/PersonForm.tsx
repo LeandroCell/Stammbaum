@@ -84,7 +84,7 @@ export function PersonForm({ mode, people, initialValues, excludePersonId, onSub
   }
 
   return (
-    <div className="fixed inset-0 z-20 flex items-center justify-center bg-slate-900/40 p-4">
+    <div className="fixed inset-0 z-30 flex items-center justify-center bg-slate-900/40 p-4">
       <form
         onSubmit={handleSubmit}
         aria-label={mode === "create" ? "Neue Person" : "Person bearbeiten"}

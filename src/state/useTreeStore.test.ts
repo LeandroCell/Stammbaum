@@ -31,4 +31,26 @@ describe("useTreeStore", () => {
     useTreeStore.getState().setActiveView("radial");
     expect(useTreeStore.getState().activeView).toBe("radial");
   });
+
+  it("toggles the panel collapsed state", () => {
+    useTreeStore.getState().togglePanelCollapsed();
+    expect(useTreeStore.getState().isPanelCollapsed).toBe(true);
+    useTreeStore.getState().togglePanelCollapsed();
+    expect(useTreeStore.getState().isPanelCollapsed).toBe(false);
+  });
+
+  it("re-selecting the already-selected person un-collapses the panel", () => {
+    useTreeStore.getState().selectPerson("father");
+    useTreeStore.getState().togglePanelCollapsed();
+    expect(useTreeStore.getState().isPanelCollapsed).toBe(true);
+
+    useTreeStore.getState().selectPerson("father");
+    expect(useTreeStore.getState().isPanelCollapsed).toBe(false);
+  });
+
+  it("deselecting keeps the collapsed flag untouched", () => {
+    useTreeStore.getState().togglePanelCollapsed();
+    useTreeStore.getState().selectPerson(null);
+    expect(useTreeStore.getState().isPanelCollapsed).toBe(true);
+  });
 });

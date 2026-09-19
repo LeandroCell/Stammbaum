@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import type { Person } from "../../data/types";
 
 interface PersonInfoPanelProps {
@@ -7,6 +6,8 @@ interface PersonInfoPanelProps {
   onCenter: (personId: string) => void;
   onEdit: (personId: string) => void;
   onDelete: (personId: string) => void;
+  isCollapsed: boolean;
+  onToggleCollapsed: () => void;
 }
 
 function formatDate(dateString?: string): string | undefined {
@@ -16,21 +17,20 @@ function formatDate(dateString?: string): string | undefined {
   return `${day}.${month}.${year}`;
 }
 
-export function PersonInfoPanel({ person, onClose, onCenter, onEdit, onDelete }: PersonInfoPanelProps) {
-  const [isCollapsed, setIsCollapsed] = useState(false);
-
-  // Selecting a (new) person always shows their info — collapsing is a
-  // manual, temporary "get it out of my way for a moment" action, not a
-  // sticky preference that should hide the next person you click on.
-  useEffect(() => {
-    setIsCollapsed(false);
-  }, [person?.id]);
-
+export function PersonInfoPanel({
+  person,
+  onClose,
+  onCenter,
+  onEdit,
+  onDelete,
+  isCollapsed,
+  onToggleCollapsed,
+}: PersonInfoPanelProps) {
   const isVisible = Boolean(person) && !isCollapsed;
 
   return (
     <aside
-      className={`fixed left-0 top-0 h-full w-full max-w-sm transform bg-white shadow-xl transition-transform duration-300 ease-out ${
+      className={`fixed left-0 top-0 z-20 h-full w-full max-w-sm transform bg-white shadow-xl transition-transform duration-300 ease-out ${
         isVisible ? "translate-x-0" : "-translate-x-full"
       }`}
       aria-hidden={!isVisible}
@@ -38,7 +38,7 @@ export function PersonInfoPanel({ person, onClose, onCenter, onEdit, onDelete }:
       {person && (
         <button
           type="button"
-          onClick={() => setIsCollapsed((collapsed) => !collapsed)}
+          onClick={onToggleCollapsed}
           aria-label={isCollapsed ? "Info-Panel einblenden" : "Info-Panel ausblenden"}
           className="absolute -right-7 top-1/2 flex h-14 w-7 -translate-y-1/2 items-center justify-center rounded-r-md bg-white text-slate-400 shadow-md hover:text-slate-600"
         >
