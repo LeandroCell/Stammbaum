@@ -12,6 +12,29 @@ describe("networkLayout large trees", () => {
     expect(maxWidth).toBeLessThanOrEqual(9 * 220);
   });
 
+  it("orders each generation so parent-child lines rarely cross", () => {
+    // Rank within the generation (row by row) so wrapped rows count as one line.
+    const rank = new Map<string, number>();
+    for (const g of new Set(result.nodes.map((n) => n.generation)))
+      result.nodes
+        .filter((n) => n.generation === g)
+        .sort((a, b) => a.y - b.y || a.x - b.x)
+        .forEach((n, i) => rank.set(n.personId, i));
+    const at = new Map(result.nodes.map((n) => [n.personId, { ...n, x: rank.get(n.personId)! }]));
+    const pc = result.edges
+      .filter((e) => e.kind === "parent-child")
+      .map((e) => [at.get(e.fromPersonId)!, at.get(e.toPersonId)!]);
+    let crossings = 0;
+    for (let i = 0; i < pc.length; i++)
+      for (let j = i + 1; j < pc.length; j++) {
+        const [a, b] = [pc[i], pc[j]];
+        if (a[0].generation !== b[0].generation || a[1].generation !== b[1].generation) continue;
+        if ((a[0].x - b[0].x) * (a[1].x - b[1].x) < 0) crossings++;
+      }
+    // BFS-discovery order gave ~6000 here; barycenter ordering ~200.
+    expect(crossings).toBeLessThan(400);
+  });
+
   it("never overlaps cards and keeps generations in order top to bottom", () => {
     expect(countOverlaps(result.nodes)).toBe(0);
     const yByGeneration = new Map<number, number[]>();
