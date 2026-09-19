@@ -1,4 +1,4 @@
-import type { LayoutEdge, LayoutFn, PositionedNode } from "./layout.types";
+import type { LayoutEdge, LayoutFn, LayoutOptions, PositionedNode } from "./layout.types";
 import { buildFamilyMaps, orderParentsFatherFirst, type FamilyMaps } from "../data/familyGraph";
 
 const GENERATION_HEIGHT = 160;
@@ -33,18 +33,19 @@ function layoutAncestors(
   siblingSide: "left" | "right",
   maps: FamilyMaps,
   spine: Set<string>,
-  edges: LayoutEdge[]
+  edges: LayoutEdge[],
+  showSiblings: boolean
 ): AncestorBlock {
   const parentFamily = generation < MAX_ANCESTOR_GENERATIONS ? maps.familyByChildId.get(personId) : undefined;
   const [fatherId, motherId] = parentFamily
     ? orderParentsFatherFirst(parentFamily.partnerIds, maps.peopleById)
     : [undefined, undefined];
-  const siblingIds = (parentFamily?.childrenIds ?? []).filter(
-    (id) => id !== personId && !spine.has(id) && maps.peopleById.has(id)
-  );
+  const siblingIds = showSiblings
+    ? (parentFamily?.childrenIds ?? []).filter((id) => id !== personId && !spine.has(id) && maps.peopleById.has(id))
+    : [];
 
-  const mother = motherId ? layoutAncestors(motherId, generation + 1, "left", maps, spine, edges) : undefined;
-  const father = fatherId ? layoutAncestors(fatherId, generation + 1, "right", maps, spine, edges) : undefined;
+  const mother = motherId ? layoutAncestors(motherId, generation + 1, "left", maps, spine, edges, showSiblings) : undefined;
+  const father = fatherId ? layoutAncestors(fatherId, generation + 1, "right", maps, spine, edges, showSiblings) : undefined;
   // Father's block goes directly right of the mother's block.
   const fatherShift = mother && father ? mother.right - father.left : 0;
   const parents = [mother, father].filter((b): b is AncestorBlock => b !== undefined);
@@ -85,10 +86,12 @@ function layoutAncestors(
 }
 
 
-// Widens the ancestor spine to include siblings at every generation (the
-// center's own siblings, aunts/uncles, great-aunts/uncles, ...) so a person
-// is visible as soon as they're connected to the tree at all, not only when
-// they happen to be someone's direct parent.
+// Adds siblings for any generation<=0 node that layoutAncestors' own
+// recursion didn't already cover — in practice that's the center's
+// partner(s), placed after the ancestor pass finished, so their siblings
+// (in-laws) would otherwise be missing. (Everyone actually on the ancestor
+// spine already got their siblings from layoutAncestors itself, so this is
+// a no-op for them — `!nodes.has(id)` skips anyone already placed.)
 //
 // ponytail: siblings added here are leaves — their own descendants aren't
 // expanded (center on one of them to see their line). Placement is
@@ -237,14 +240,15 @@ function placeDescendantUnit(
   return personX / NODE_SPACING;
 }
 
-export const classicLayout: LayoutFn = (people, families, centerPersonId) => {
+export const classicLayout: LayoutFn = (people, families, centerPersonId, options?: LayoutOptions) => {
   const maps = buildFamilyMaps(people, families);
   const nodes = new Map<string, PositionedNode>();
   const edges: LayoutEdge[] = [];
 
+  const showSiblings = options?.showSiblings ?? true;
   const spine = new Set<string>();
   collectSpine(centerPersonId, 0, maps, spine);
-  const ancestors = layoutAncestors(centerPersonId, 0, "left", maps, spine, edges);
+  const ancestors = layoutAncestors(centerPersonId, 0, "left", maps, spine, edges, showSiblings);
   for (const item of ancestors.items) {
     nodes.set(item.personId, {
       personId: item.personId,
@@ -271,7 +275,9 @@ export const classicLayout: LayoutFn = (people, families, centerPersonId) => {
   }
   edges.push(...scratchEdges);
 
-  addAncestorSiblings(nodes, edges, maps, centerPersonId);
+  if (showSiblings) {
+    addAncestorSiblings(nodes, edges, maps, centerPersonId);
+  }
 
   const offsetX = nodes.get(centerPersonId)?.x ?? 0;
   const recentered = Array.from(nodes.values()).map((n) => ({ ...n, x: n.x - offsetX }));

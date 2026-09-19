@@ -192,3 +192,19 @@ describe("classicLayout", () => {
     expect(new Set(positions).size).toBe(positions.length);
   });
 });
+
+describe("classicLayout showSiblings option", () => {
+  it("omits siblings (the center's own and every ancestor's) when showSiblings is false", () => {
+    const result = classicLayout(people, families, "me", { showSiblings: false });
+    const ids = result.nodes.map((n) => n.personId);
+    expect(ids).not.toContain("sibling1");
+    expect(ids.sort()).toEqual(
+      ["me", "father", "mother", "pgf", "pgm", "mgf", "mgm", "partner", "child1"].sort()
+    );
+  });
+
+  it("still includes siblings when showSiblings is omitted (defaults to true)", () => {
+    const result = classicLayout(people, families, "me");
+    expect(result.nodes.map((n) => n.personId)).toContain("sibling1");
+  });
+});

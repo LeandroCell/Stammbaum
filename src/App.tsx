@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { useFamilyData } from "./data/useFamilyData";
 import { useTreeStore, type ViewMode } from "./state/useTreeStore";
 import { TreeCanvas } from "./components/TreeCanvas/TreeCanvas";
+import type { ConnectorStyle } from "./components/TreeCanvas/familyConnectors";
 import { PersonInfoPanel } from "./components/PersonInfoPanel/PersonInfoPanel";
 import { ViewMenu } from "./components/ViewMenu/ViewMenu";
 import { LoginScreen } from "./components/LoginScreen/LoginScreen";
@@ -15,6 +16,7 @@ import { classicLayout } from "./layout/classicLayout";
 import { radialLayout } from "./layout/radialLayout";
 import { networkLayout } from "./layout/networkLayout";
 import type { LayoutFn } from "./layout/layout.types";
+import type { DocumentRef, Photo, Source } from "./data/types";
 import { exportGedcom } from "./data/gedcomExport";
 import { pickDefaultCenter } from "./data/familyGraph";
 
@@ -24,11 +26,51 @@ const LAYOUTS: Record<ViewMode, LayoutFn> = {
   network: networkLayout,
 };
 
+// Elbow (right-angled parent/child stems) matches the generation-stacked
+// classic and network layouts; the radial fan uses straight spokes instead
+// so connectors match its geometry.
+const EDGE_STYLES: Record<ViewMode, ConnectorStyle> = {
+  classic: "elbow",
+  radial: "straight",
+  network: "elbow",
+};
+
 type FormState = { mode: "create" } | { mode: "edit"; personId: string };
 
 function toOptionalField(value: string): string | undefined {
   const trimmed = value.trim();
   return trimmed === "" ? undefined : trimmed;
+}
+
+function cleanPhotos(photos: Photo[]): Photo[] | undefined {
+  const cleaned = photos
+    .filter((p) => p.url.trim() !== "")
+    .map((p) => ({ id: p.id, url: p.url.trim(), caption: toOptionalField(p.caption ?? "") }));
+  return cleaned.length > 0 ? cleaned : undefined;
+}
+
+function cleanSources(sources: Source[]): Source[] | undefined {
+  const cleaned = sources
+    .filter((s) => s.title.trim() !== "")
+    .map((s) => ({
+      id: s.id,
+      title: s.title.trim(),
+      url: toOptionalField(s.url ?? ""),
+      note: toOptionalField(s.note ?? ""),
+    }));
+  return cleaned.length > 0 ? cleaned : undefined;
+}
+
+function cleanDocuments(documents: DocumentRef[]): DocumentRef[] | undefined {
+  const cleaned = documents
+    .filter((d) => d.title.trim() !== "" && d.url.trim() !== "")
+    .map((d) => ({
+      id: d.id,
+      title: d.title.trim(),
+      url: d.url.trim(),
+      type: toOptionalField(d.type ?? ""),
+    }));
+  return cleaned.length > 0 ? cleaned : undefined;
 }
 
 function App() {
@@ -58,6 +100,8 @@ function App() {
   const setActiveView = useTreeStore((s) => s.setActiveView);
   const isPanelCollapsed = useTreeStore((s) => s.isPanelCollapsed);
   const togglePanelCollapsed = useTreeStore((s) => s.togglePanelCollapsed);
+  const showSiblings = useTreeStore((s) => s.showSiblings);
+  const toggleShowSiblings = useTreeStore((s) => s.toggleShowSiblings);
 
   const [formState, setFormState] = useState<FormState | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -109,6 +153,9 @@ function App() {
       deathDate: toOptionalField(values.deathDate),
       deathPlace: toOptionalField(values.deathPlace),
       biography: toOptionalField(values.biography),
+      photos: cleanPhotos(values.photos),
+      sources: cleanSources(values.sources),
+      documents: cleanDocuments(values.documents),
     };
 
     const personId = formState?.mode === "edit" ? formState.personId : await addPerson(personData);
@@ -173,6 +220,12 @@ function App() {
             onChange={handleGedcomFileChange}
             className="hidden"
           />
+          {activeView === "classic" && (
+            <label className="flex items-center gap-1.5 text-sm text-slate-600">
+              <input type="checkbox" checked={showSiblings} onChange={toggleShowSiblings} className="h-4 w-4" />
+              Geschwister anzeigen
+            </label>
+          )}
           <ViewMenu activeView={activeView} onChangeView={setActiveView} />
           {!isOffline && (
             <button
@@ -208,6 +261,8 @@ function App() {
         layoutFn={LAYOUTS[activeView]}
         selectedPersonId={selectedPersonId}
         onSelectPerson={selectPerson}
+        showSiblings={showSiblings}
+        edgeStyle={EDGE_STYLES[activeView]}
       />
 
       <PersonInfoPanel

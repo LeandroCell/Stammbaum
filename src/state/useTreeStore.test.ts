@@ -53,4 +53,12 @@ describe("useTreeStore", () => {
     useTreeStore.getState().selectPerson(null);
     expect(useTreeStore.getState().isPanelCollapsed).toBe(true);
   });
+
+  it("shows siblings by default and toggles the flag", () => {
+    expect(useTreeStore.getState().showSiblings).toBe(true);
+    useTreeStore.getState().toggleShowSiblings();
+    expect(useTreeStore.getState().showSiblings).toBe(false);
+    useTreeStore.getState().toggleShowSiblings();
+    expect(useTreeStore.getState().showSiblings).toBe(true);
+  });
 });

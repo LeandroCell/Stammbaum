@@ -4,6 +4,7 @@ import type { Person, Family } from "../../data/types";
 import type { LayoutFn } from "../../layout/layout.types";
 import { PersonCard, CARD_WIDTH, CARD_HEIGHT } from "../PersonCard/PersonCard";
 import { computeFitTransform } from "./fitTransform";
+import { buildFamilyConnectors, type ConnectorStyle } from "./familyConnectors";
 
 const VIEWPORT_PADDING = 80;
 
@@ -14,6 +15,8 @@ interface TreeCanvasProps {
   layoutFn: LayoutFn;
   selectedPersonId: string | null;
   onSelectPerson: (personId: string) => void;
+  showSiblings?: boolean;
+  edgeStyle?: ConnectorStyle;
 }
 
 export function TreeCanvas({
@@ -23,13 +26,15 @@ export function TreeCanvas({
   layoutFn,
   selectedPersonId,
   onSelectPerson,
+  showSiblings = true,
+  edgeStyle = "elbow",
 }: TreeCanvasProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const groupRef = useRef<SVGGElement>(null);
 
   const layout = useMemo(
-    () => layoutFn(people, families, centerPersonId),
-    [people, families, centerPersonId, layoutFn]
+    () => layoutFn(people, families, centerPersonId, { showSiblings }),
+    [people, families, centerPersonId, layoutFn, showSiblings]
   );
 
   useLayoutEffect(() => {
@@ -76,16 +81,25 @@ export function TreeCanvas({
 
   const peopleById = useMemo(() => new Map(people.map((p) => [p.id, p])), [people]);
   const nodeById = useMemo(() => new Map(layout.nodes.map((n) => [n.personId, n])), [layout]);
+  const connectors = useMemo(
+    () => buildFamilyConnectors(families, nodeById, edgeStyle),
+    [families, nodeById, edgeStyle]
+  );
 
   return (
     <svg ref={svgRef} className="h-full w-full bg-slate-100">
       <g ref={groupRef}>
-        {layout.edges.map((edge) => {
-          const from = nodeById.get(edge.fromPersonId);
-          const to = nodeById.get(edge.toPersonId);
-          if (!from || !to) return null;
-          return <line key={edge.id} x1={from.x} y1={from.y} x2={to.x} y2={to.y} stroke="#94a3b8" strokeWidth={2} />;
-        })}
+        {connectors.map((segment) => (
+          <line
+            key={segment.id}
+            x1={segment.x1}
+            y1={segment.y1}
+            x2={segment.x2}
+            y2={segment.y2}
+            stroke="#94a3b8"
+            strokeWidth={2}
+          />
+        ))}
         {layout.nodes.map((node) => {
           const person = peopleById.get(node.personId);
           if (!person) return null;

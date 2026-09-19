@@ -1,5 +1,5 @@
-import { useState, type FormEvent } from "react";
-import type { Family, Gender, Person } from "../../data/types";
+import { useState, type FormEvent, type ReactNode } from "react";
+import type { DocumentRef, Family, Gender, Person, Photo, Source } from "../../data/types";
 import { orderParentsFatherFirst } from "../../data/familyGraph";
 import { PersonPicker } from "../PersonPicker/PersonPicker";
 
@@ -16,6 +16,15 @@ export interface PersonFormValues {
   fatherId: string;
   motherId: string;
   partnerId: string;
+  photos: Photo[];
+  sources: Source[];
+  documents: DocumentRef[];
+}
+
+// ponytail: local-only ids for still-unsaved list rows — mirrors the
+// scheme useFamilyData's generateId uses for real records.
+function generateLocalId(prefix: string): string {
+  return `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 interface PersonFormProps {
@@ -41,6 +50,9 @@ export function emptyPersonFormValues(): PersonFormValues {
     fatherId: "",
     motherId: "",
     partnerId: "",
+    photos: [],
+    sources: [],
+    documents: [],
   };
 }
 
@@ -67,7 +79,69 @@ export function personToFormValues(person: Person, people: Person[], families: F
     fatherId: fatherId ?? "",
     motherId: motherId ?? "",
     partnerId: partnerId ?? "",
+    photos: person.photos ?? [],
+    sources: person.sources ?? [],
+    documents: person.documents ?? [],
   };
+}
+
+interface ListEditorProps<T extends { id: string }> {
+  legend: string;
+  items: T[];
+  onChange: (items: T[]) => void;
+  createItem: () => T;
+  renderFields: (item: T, update: (patch: Partial<T>) => void) => ReactNode;
+  addLabel: string;
+  emptyLabel: string;
+}
+
+// Shared add/remove list editor for the photos/sources/documents sections
+// below — the three differ only in which fields each row has.
+function ListEditor<T extends { id: string }>({
+  legend,
+  items,
+  onChange,
+  createItem,
+  renderFields,
+  addLabel,
+  emptyLabel,
+}: ListEditorProps<T>) {
+  return (
+    <div className="col-span-2">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-medium text-slate-700">{legend}</h3>
+        <button
+          type="button"
+          onClick={() => onChange([...items, createItem()])}
+          className="text-sm font-medium text-blue-600 hover:underline"
+        >
+          {addLabel}
+        </button>
+      </div>
+      {items.length === 0 && <p className="mt-1 text-sm text-slate-400">{emptyLabel}</p>}
+      <div className="mt-2 space-y-2">
+        {items.map((item, index) => (
+          <div key={item.id} className="flex items-start gap-2 rounded border border-slate-200 p-2">
+            <div className="grid flex-1 grid-cols-2 gap-2">
+              {renderFields(item, (patch) => {
+                const next = [...items];
+                next[index] = { ...item, ...patch };
+                onChange(next);
+              })}
+            </div>
+            <button
+              type="button"
+              onClick={() => onChange(items.filter((_, i) => i !== index))}
+              aria-label={`${legend}-Eintrag entfernen`}
+              className="mt-1 text-slate-400 hover:text-red-600"
+            >
+              ✕
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export function PersonForm({ mode, people, initialValues, excludePersonId, onSubmit, onCancel }: PersonFormProps) {
@@ -177,6 +251,113 @@ export function PersonForm({ mode, people, initialValues, excludePersonId, onSub
               className="mt-1 w-full rounded border border-slate-300 px-2 py-1"
             />
           </label>
+
+          <ListEditor
+            legend="Bilder"
+            items={values.photos}
+            onChange={(photos) => update("photos", photos)}
+            createItem={() => ({ id: generateLocalId("photo"), url: "", caption: "" })}
+            addLabel="+ Bild hinzufügen"
+            emptyLabel="Keine Bilder hinterlegt."
+            renderFields={(photo, updatePhoto) => (
+              <>
+                <label className="col-span-2 text-xs text-slate-600 sm:col-span-1">
+                  Bild-URL*
+                  <input
+                    required
+                    value={photo.url}
+                    onChange={(e) => updatePhoto({ url: e.target.value })}
+                    className="mt-1 w-full rounded border border-slate-300 px-2 py-1 text-sm"
+                  />
+                </label>
+                <label className="col-span-2 text-xs text-slate-600 sm:col-span-1">
+                  Bildunterschrift
+                  <input
+                    value={photo.caption ?? ""}
+                    onChange={(e) => updatePhoto({ caption: e.target.value })}
+                    className="mt-1 w-full rounded border border-slate-300 px-2 py-1 text-sm"
+                  />
+                </label>
+              </>
+            )}
+          />
+
+          <ListEditor
+            legend="Quellen"
+            items={values.sources}
+            onChange={(sources) => update("sources", sources)}
+            createItem={() => ({ id: generateLocalId("src"), title: "", url: "", note: "" })}
+            addLabel="+ Quelle hinzufügen"
+            emptyLabel="Keine Quellen hinterlegt."
+            renderFields={(source, updateSource) => (
+              <>
+                <label className="col-span-2 text-xs text-slate-600 sm:col-span-1">
+                  Titel*
+                  <input
+                    required
+                    value={source.title}
+                    onChange={(e) => updateSource({ title: e.target.value })}
+                    className="mt-1 w-full rounded border border-slate-300 px-2 py-1 text-sm"
+                  />
+                </label>
+                <label className="col-span-2 text-xs text-slate-600 sm:col-span-1">
+                  Link
+                  <input
+                    value={source.url ?? ""}
+                    onChange={(e) => updateSource({ url: e.target.value })}
+                    className="mt-1 w-full rounded border border-slate-300 px-2 py-1 text-sm"
+                  />
+                </label>
+                <label className="col-span-2 text-xs text-slate-600">
+                  Notiz
+                  <input
+                    value={source.note ?? ""}
+                    onChange={(e) => updateSource({ note: e.target.value })}
+                    className="mt-1 w-full rounded border border-slate-300 px-2 py-1 text-sm"
+                  />
+                </label>
+              </>
+            )}
+          />
+
+          <ListEditor
+            legend="Dokumente"
+            items={values.documents}
+            onChange={(documents) => update("documents", documents)}
+            createItem={() => ({ id: generateLocalId("doc"), title: "", url: "", type: "" })}
+            addLabel="+ Dokument hinzufügen"
+            emptyLabel="Keine Dokumente hinterlegt."
+            renderFields={(doc, updateDoc) => (
+              <>
+                <label className="col-span-2 text-xs text-slate-600 sm:col-span-1">
+                  Titel*
+                  <input
+                    required
+                    value={doc.title}
+                    onChange={(e) => updateDoc({ title: e.target.value })}
+                    className="mt-1 w-full rounded border border-slate-300 px-2 py-1 text-sm"
+                  />
+                </label>
+                <label className="col-span-2 text-xs text-slate-600 sm:col-span-1">
+                  Typ
+                  <input
+                    value={doc.type ?? ""}
+                    onChange={(e) => updateDoc({ type: e.target.value })}
+                    className="mt-1 w-full rounded border border-slate-300 px-2 py-1 text-sm"
+                  />
+                </label>
+                <label className="col-span-2 text-xs text-slate-600">
+                  Link*
+                  <input
+                    required
+                    value={doc.url}
+                    onChange={(e) => updateDoc({ url: e.target.value })}
+                    className="mt-1 w-full rounded border border-slate-300 px-2 py-1 text-sm"
+                  />
+                </label>
+              </>
+            )}
+          />
 
           <PersonPicker
             label="Vater"
