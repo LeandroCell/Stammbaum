@@ -25,6 +25,7 @@ export function PersonCard({ person, x, y, isSelected, onSelect }: PersonCardPro
       <button
         type="button"
         onClick={() => onSelect(person.id)}
+        onDoubleClick={() => onSelect(person.id)}
         className={`h-full w-full rounded-lg border px-3 py-2 text-left shadow-sm transition-colors ${
           isSelected
             ? "border-amber-400 bg-amber-50 ring-2 ring-amber-300"

@@ -35,3 +35,43 @@ export function orderParentsFatherFirst(partnerIds: string[], peopleById: Map<st
   const rest = known.filter((id) => id !== father && id !== mother);
   return [father, mother, ...rest].filter((id): id is string => Boolean(id));
 }
+
+// Picks a sensible starting person for a freshly imported tree: the one
+// with the most known ancestors, i.e. the deepest, best-documented branch
+// (typically the youngest person of the main line, which is what
+// genealogy software usually treats as the "proband"). A file's first
+// INDI record is arbitrary — often the oldest ancestor with nothing above
+// them, which makes the classic view a huge descendant sprawl and the
+// radial view empty.
+export function pickDefaultCenter(people: Person[], families: Family[]): string | undefined {
+  if (people.length === 0) return undefined;
+  const { familyByChildId, peopleById } = buildFamilyMaps(people, families);
+
+  function countAncestors(personId: string): number {
+    const seen = new Set<string>();
+    const stack = [personId];
+    while (stack.length > 0) {
+      const current = stack.pop()!;
+      const parentFamily = familyByChildId.get(current);
+      if (!parentFamily) continue;
+      for (const parentId of parentFamily.partnerIds) {
+        if (!seen.has(parentId) && peopleById.has(parentId) && parentId !== personId) {
+          seen.add(parentId);
+          stack.push(parentId);
+        }
+      }
+    }
+    return seen.size;
+  }
+
+  let best = people[0].id;
+  let bestCount = -1;
+  for (const person of people) {
+    const count = countAncestors(person.id);
+    if (count > bestCount) {
+      best = person.id;
+      bestCount = count;
+    }
+  }
+  return best;
+}

@@ -76,6 +76,23 @@ describe("App", () => {
     expect(screen.getByText("Geburtsort: Stuttgart")).toBeInTheDocument();
   });
 
+  it("re-opens the panel when clicking the same person again after collapsing it", async () => {
+    render(<App />);
+    await userEvent.click(screen.getByText("Thomas Berger"));
+    await userEvent.click(screen.getByLabelText("Info-Panel ausblenden"));
+    expect(screen.getByRole("complementary", { hidden: true })).toHaveAttribute("aria-hidden", "true");
+
+    await userEvent.click(screen.getByText("Thomas Berger", { selector: ".truncate" }));
+    expect(screen.getByRole("complementary", { hidden: true })).toHaveAttribute("aria-hidden", "false");
+  });
+
+  it("opens the info panel on double-click and doesn't zoom the canvas", async () => {
+    render(<App />);
+    await userEvent.dblClick(screen.getByText("Thomas Berger"));
+    expect(screen.getByRole("complementary", { hidden: true })).toHaveAttribute("aria-hidden", "false");
+    expect(screen.getByText("Zentrieren")).toBeInTheDocument();
+  });
+
   describe("deleting a person", () => {
     afterEach(() => {
       vi.restoreAllMocks();

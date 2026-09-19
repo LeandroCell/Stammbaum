@@ -1,6 +1,97 @@
 import { describe, it, expect } from "vitest";
 import { classicLayout } from "./classicLayout";
 import { people, families } from "../data/sampleData";
+import { buildDynasty, countOverlaps } from "./largeTree.fixture";
+
+describe("classicLayout large trees", () => {
+  const dynasty = buildDynasty();
+
+  it("shows every descendant and in-law of the root couple, without overlapping cards", () => {
+    const result = classicLayout(dynasty.people, dynasty.families, "p1");
+    expect(result.nodes).toHaveLength(dynasty.people.length);
+    expect(countOverlaps(result.nodes)).toBe(0);
+  });
+
+  it("has no overlapping cards when centered on a deep descendant either", () => {
+    const deep = dynasty.people[dynasty.people.length - 1].id;
+    expect(countOverlaps(classicLayout(dynasty.people, dynasty.families, deep).nodes)).toBe(0);
+  });
+
+  it("centers each parent above their children instead of at the left edge of the subtree", () => {
+    const result = classicLayout(dynasty.people, dynasty.families, "p1");
+    const byId = new Map(result.nodes.map((n) => [n.personId, n]));
+    const childXs = dynasty.families[0].childrenIds.map((id) => byId.get(id)!.x);
+    const childCenter = (Math.min(...childXs) + Math.max(...childXs)) / 2;
+    const rootCoupleCenter = (byId.get("p1")!.x + byId.get("p2")!.x) / 2;
+    expect(Math.abs(rootCoupleCenter - childCenter)).toBeLessThan(1);
+  });
+
+  it("shows a descendant's spouse next to them and connects the spouse to the children", () => {
+    const result = classicLayout(dynasty.people, dynasty.families, "p1");
+    const married = dynasty.families.find((f) => f.id !== "f1" && f.childrenIds.length > 0)!;
+    const [a, b] = married.partnerIds.map((id) => result.nodes.find((n) => n.personId === id)!);
+    expect(a.y).toBe(b.y);
+    expect(Math.abs(a.x - b.x)).toBe(220);
+    const edgeKeys = new Set(result.edges.map((e) => `${e.fromPersonId}->${e.toPersonId}`));
+    for (const child of married.childrenIds) {
+      expect(edgeKeys.has(`${married.partnerIds[0]}->${child}`)).toBe(true);
+      expect(edgeKeys.has(`${married.partnerIds[1]}->${child}`)).toBe(true);
+    }
+  });
+
+  it("terminates on cyclic data instead of recursing forever", () => {
+    const cyclePeople = [
+      { id: "a", firstName: "A", lastName: "X" },
+      { id: "b", firstName: "B", lastName: "X" },
+    ];
+    const cycleFamilies = [
+      { id: "f1", partnerIds: ["a"], childrenIds: ["b"] },
+      { id: "f2", partnerIds: ["b"], childrenIds: ["a"] },
+    ];
+    expect(() => classicLayout(cyclePeople, cycleFamilies, "a")).not.toThrow();
+  });
+});
+
+describe("classicLayout partner's siblings", () => {
+  const person = (id: string) => ({ id, firstName: id, lastName: "X" });
+  const fams = [
+    { id: "f1", partnerIds: ["b", "c"], childrenIds: ["andrea", "franco"] },
+    { id: "f2", partnerIds: ["i", "s"], childrenIds: ["anja", "daniela", "martina"] },
+    { id: "f3", partnerIds: ["franco", "martina"], childrenIds: ["kid"] },
+  ];
+
+  it("places the partner's siblings right next to the partner, not on the far side of the center's siblings", () => {
+    const r = classicLayout(["b", "c", "i", "s", "andrea", "franco", "martina", "anja", "daniela", "kid"].map(person), fams, "franco");
+    const x = new Map(r.nodes.map((n) => [n.personId, n.x]));
+    expect(x.get("andrea")!).toBeLessThan(x.get("franco")!);
+    expect(x.get("anja")!).toBeGreaterThan(x.get("martina")!);
+    expect(x.get("daniela")!).toBeGreaterThan(x.get("martina")!);
+    expect(new Set(r.nodes.map((n) => `${n.x},${n.y}`)).size).toBe(r.nodes.length);
+  });
+});
+
+describe("classicLayout ancestor siblings", () => {
+  it("keeps each grandparent's siblings next to that grandparent, on the outer side of the couple", () => {
+    const person = (id: string) => ({ id, firstName: id, lastName: "X" });
+    const r = classicLayout(
+      ["b", "c", "i", "s", "andrea", "franco", "martina", "anja", "daniela", "chiara", "emilia"].map(person),
+      [
+        { id: "f1", partnerIds: ["b", "c"], childrenIds: ["andrea", "franco"] },
+        { id: "f2", partnerIds: ["i", "s"], childrenIds: ["anja", "daniela", "martina"] },
+        { id: "f3", partnerIds: ["franco", "martina"], childrenIds: ["chiara"] },
+        { id: "f4", partnerIds: ["chiara"], childrenIds: ["emilia"] },
+      ],
+      "emilia"
+    );
+    const x = new Map(r.nodes.map((n) => [n.personId, n.x]));
+    const order = ["anja", "daniela", "martina", "franco", "andrea"].sort((a, b) => x.get(a)! - x.get(b)!);
+    // franco is the father (right), martina the mother (left); each side's siblings stay outside.
+    expect(order.indexOf("martina")).toBeGreaterThan(order.indexOf("anja"));
+    expect(order.indexOf("martina")).toBeGreaterThan(order.indexOf("daniela"));
+    expect(order.indexOf("franco")).toBeLessThan(order.indexOf("andrea"));
+    expect(order.indexOf("martina") + 1).toBe(order.indexOf("franco"));
+  });
+});
 
 describe("classicLayout", () => {
   const result = classicLayout(people, families, "me");
