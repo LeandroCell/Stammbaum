@@ -6,36 +6,17 @@ import { buildDynasty, countOverlaps } from "./largeTree.fixture";
 describe("classicLayout large trees", () => {
   const dynasty = buildDynasty();
 
-  it("shows every descendant and in-law of the root couple, without overlapping cards", () => {
-    const result = classicLayout(dynasty.people, dynasty.families, "p1");
-    expect(result.nodes).toHaveLength(dynasty.people.length);
-    expect(countOverlaps(result.nodes)).toBe(0);
-  });
-
-  it("has no overlapping cards when centered on a deep descendant either", () => {
+  it("has no overlapping cards when centered on a deep descendant", () => {
     const deep = dynasty.people[dynasty.people.length - 1].id;
     expect(countOverlaps(classicLayout(dynasty.people, dynasty.families, deep).nodes)).toBe(0);
   });
 
-  it("centers each parent above their children instead of at the left edge of the subtree", () => {
+  it("never shows the centered person's own descendants", () => {
+    // f1's children are the root couple's direct descendants.
     const result = classicLayout(dynasty.people, dynasty.families, "p1");
-    const byId = new Map(result.nodes.map((n) => [n.personId, n]));
-    const childXs = dynasty.families[0].childrenIds.map((id) => byId.get(id)!.x);
-    const childCenter = (Math.min(...childXs) + Math.max(...childXs)) / 2;
-    const rootCoupleCenter = (byId.get("p1")!.x + byId.get("p2")!.x) / 2;
-    expect(Math.abs(rootCoupleCenter - childCenter)).toBeLessThan(1);
-  });
-
-  it("shows a descendant's spouse next to them and connects the spouse to the children", () => {
-    const result = classicLayout(dynasty.people, dynasty.families, "p1");
-    const married = dynasty.families.find((f) => f.id !== "f1" && f.childrenIds.length > 0)!;
-    const [a, b] = married.partnerIds.map((id) => result.nodes.find((n) => n.personId === id)!);
-    expect(a.y).toBe(b.y);
-    expect(Math.abs(a.x - b.x)).toBe(220);
-    const edgeKeys = new Set(result.edges.map((e) => `${e.fromPersonId}->${e.toPersonId}`));
-    for (const child of married.childrenIds) {
-      expect(edgeKeys.has(`${married.partnerIds[0]}->${child}`)).toBe(true);
-      expect(edgeKeys.has(`${married.partnerIds[1]}->${child}`)).toBe(true);
+    const ids = new Set(result.nodes.map((n) => n.personId));
+    for (const childId of dynasty.families[0].childrenIds) {
+      expect(ids.has(childId)).toBe(false);
     }
   });
 
@@ -67,6 +48,11 @@ describe("classicLayout partner's siblings", () => {
     expect(ids).toContain("martina");
     expect(ids).not.toContain("anja");
     expect(ids).not.toContain("daniela");
+  });
+
+  it("does not show the centered person's own children", () => {
+    const r = classicLayout(["b", "c", "i", "s", "andrea", "franco", "martina", "anja", "daniela", "kid"].map(person), fams, "franco");
+    expect(r.nodes.map((n) => n.personId)).not.toContain("kid");
   });
 });
 
@@ -116,33 +102,19 @@ describe("classicLayout", () => {
     expect(paternalGrandfather.generation).toBe(-2);
   });
 
-  it("places children below the center person", () => {
-    const child = nodeById.get("child1")!;
-    expect(child.y).toBeGreaterThan(0);
-    expect(child.generation).toBe(1);
+  it("does not show the center's own children (descendants)", () => {
+    expect(nodeById.has("child1")).toBe(false);
   });
 
-  it("connects every family relationship with an edge", () => {
+  it("connects every ancestor relationship with an edge", () => {
     const edgeKey = (a: string, b: string) => `${a}->${b}`;
     const edgeSet = new Set(result.edges.map((e) => edgeKey(e.fromPersonId, e.toPersonId)));
     expect(edgeSet.has(edgeKey("father", "me"))).toBe(true);
     expect(edgeSet.has(edgeKey("mother", "me"))).toBe(true);
-    expect(edgeSet.has(edgeKey("me", "child1"))).toBe(true);
   });
 
-  it("includes the ancestor chain, their siblings, the partner, and the descendants of the center person", () => {
-    const expectedIds = [
-      "me",
-      "sibling1",
-      "father",
-      "mother",
-      "pgf",
-      "pgm",
-      "mgf",
-      "mgm",
-      "partner",
-      "child1",
-    ];
+  it("includes the ancestor chain, their siblings, and the center's partner — but no descendants", () => {
+    const expectedIds = ["me", "sibling1", "father", "mother", "pgf", "pgm", "mgf", "mgm", "partner"];
     expect([...nodeById.keys()].sort()).toEqual(expectedIds.sort());
   });
 
@@ -198,9 +170,7 @@ describe("classicLayout showSiblings option", () => {
     const result = classicLayout(people, families, "me", { showSiblings: false });
     const ids = result.nodes.map((n) => n.personId);
     expect(ids).not.toContain("sibling1");
-    expect(ids.sort()).toEqual(
-      ["me", "father", "mother", "pgf", "pgm", "mgf", "mgm", "partner", "child1"].sort()
-    );
+    expect(ids.sort()).toEqual(["me", "father", "mother", "pgf", "pgm", "mgf", "mgm", "partner"].sort());
   });
 
   it("still includes siblings when showSiblings is omitted (defaults to true)", () => {

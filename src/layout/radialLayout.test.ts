@@ -4,7 +4,7 @@ import { people, families } from "../data/sampleData";
 import { buildDynasty, countOverlaps } from "./largeTree.fixture";
 
 describe("radialLayout large trees", () => {
-  it("keeps deep generations from overlapping by growing the ring radius with the slot count", () => {
+  it("keeps deep generations from overlapping", () => {
     const dynasty = buildDynasty(6);
     const deepest = dynasty.people[dynasty.people.length - 1].id;
     const result = radialLayout(dynasty.people, dynasty.families, deepest);
@@ -17,62 +17,43 @@ describe("radialLayout", () => {
   const result = radialLayout(people, families, "me");
   const nodeById = new Map(result.nodes.map((n) => [n.personId, n]));
 
-  const distanceFromCenter = (x: number, y: number) => Math.sqrt(x * x + y * y);
-
   it("places the center person at the origin", () => {
-    const center = nodeById.get("me")!;
-    expect(center.x).toBeCloseTo(0);
-    expect(center.y).toBeCloseTo(0);
-    expect(center.generation).toBe(0);
+    expect(nodeById.get("me")).toMatchObject({ x: 0, y: 0, generation: 0 });
   });
 
-  it("places the father to the right and the mother to the left", () => {
+  it("places the direct parents exactly level with the centered person — father right, mother left", () => {
     const father = nodeById.get("father")!;
     const mother = nodeById.get("mother")!;
     expect(father.x).toBeGreaterThan(0);
     expect(mother.x).toBeLessThan(0);
+    expect(father.y).toBe(0);
+    expect(mother.y).toBe(0);
     expect(father.generation).toBe(-1);
     expect(mother.generation).toBe(-1);
   });
 
-  it("places the direct parents exactly level with the centered person, not diagonally above them", () => {
+  it("places grandparents further out than parents, on the same side", () => {
     const father = nodeById.get("father")!;
+    const pgf = nodeById.get("pgf")!;
     const mother = nodeById.get("mother")!;
-    expect(father.y).toBeCloseTo(0);
-    expect(mother.y).toBeCloseTo(0);
+    const mgf = nodeById.get("mgf")!;
+    expect(pgf.x).toBeGreaterThan(father.x);
+    expect(mgf.x).toBeLessThan(mother.x);
+    expect(pgf.generation).toBe(-2);
   });
 
-  it("fans further generations evenly above and below their own parent's position, not further upward", () => {
-    // pgf/pgm are father's own parents: one should end up above father's
-    // row, the other below it — not both drifting further up the page.
+  it("fans grandparents symmetrically above and below their own child's row, not diagonally upward", () => {
     const father = nodeById.get("father")!;
     const pgf = nodeById.get("pgf")!;
     const pgm = nodeById.get("pgm")!;
     expect(pgf.y).toBeGreaterThan(father.y);
     expect(pgm.y).toBeLessThan(father.y);
-  });
-
-  it("places grandparents on a wider ring than parents", () => {
-    const father = nodeById.get("father")!;
-    const paternalGrandfather = nodeById.get("pgf")!;
-    expect(distanceFromCenter(paternalGrandfather.x, paternalGrandfather.y)).toBeGreaterThan(
-      distanceFromCenter(father.x, father.y)
-    );
-    expect(paternalGrandfather.generation).toBe(-2);
+    expect(Math.abs(pgf.y - father.y)).toBeCloseTo(Math.abs(pgm.y - father.y));
   });
 
   it("includes only the center's direct blood-line ancestors — no siblings, no partner, no descendants", () => {
     const expectedIds = ["me", "father", "mother", "pgf", "pgm", "mgf", "mgm"];
     expect([...nodeById.keys()].sort()).toEqual(expectedIds.sort());
-  });
-
-  it("places father's side further right on every generation, mother's side further left", () => {
-    const father = nodeById.get("father")!;
-    const mother = nodeById.get("mother")!;
-    const pgf = nodeById.get("pgf")!;
-    const mgf = nodeById.get("mgf")!;
-    expect(pgf.x).toBeGreaterThan(father.x);
-    expect(mgf.x).toBeLessThan(mother.x);
   });
 
   it("connects every ancestor relationship with an edge", () => {
@@ -82,5 +63,11 @@ describe("radialLayout", () => {
     expect(edgeSet.has(edgeKey("mother", "me"))).toBe(true);
     expect(edgeSet.has(edgeKey("pgf", "father"))).toBe(true);
     expect(edgeSet.has(edgeKey("mgf", "mother"))).toBe(true);
+  });
+
+  it("shows only the centered person when nobody's ancestors are known", () => {
+    const lonely = [{ id: "solo", firstName: "Solo", lastName: "X" }];
+    const result = radialLayout(lonely, [], "solo");
+    expect(result.nodes).toEqual([{ personId: "solo", x: 0, y: 0, generation: 0 }]);
   });
 });
