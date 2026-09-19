@@ -46,6 +46,25 @@ describe("networkLayout large trees", () => {
   });
 });
 
+describe("networkLayout in-law siblings", () => {
+  const person = (id: string) => ({ id, firstName: id, lastName: "X" });
+  const ids = ["b", "c", "i", "s", "andrea", "franco", "martina", "anja", "daniela", "kid"];
+  const fams = [
+    { id: "f1", partnerIds: ["b", "c"], childrenIds: ["andrea", "franco"] },
+    { id: "f2", partnerIds: ["i", "s"], childrenIds: ["anja", "daniela", "martina"] },
+    { id: "f3", partnerIds: ["franco", "martina"], childrenIds: ["kid"] },
+  ];
+
+  it("keeps a partner's siblings next to the partner, not across the whole row", () => {
+    const r = networkLayout(ids.map(person), fams, "franco");
+    const x = new Map(r.nodes.map((n) => [n.personId, n.x]));
+    const row = ["andrea", "franco", "martina", "anja", "daniela"].sort((a, b) => x.get(a)! - x.get(b)!);
+    // The two families form contiguous blocks and the couple touches.
+    expect(row.slice(0, 2)).toEqual(expect.arrayContaining(["andrea", "franco"]));
+    expect(Math.abs(x.get("franco")! - x.get("martina")!)).toBe(220);
+  });
+});
+
 describe("networkLayout", () => {
   const result = networkLayout(people, families, "me");
   const nodeById = new Map(result.nodes.map((n) => [n.personId, n]));

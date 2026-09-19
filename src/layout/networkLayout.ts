@@ -38,10 +38,11 @@ function reduceCrossings(
     const key = new Map<string, number>();
     for (const id of ids) {
       let k = own(id);
-      if (k === undefined) {
-        const partner = (neighbours.get(id) ?? []).find((n) => generationById.get(n) === generation && own(n) !== undefined);
-        k = partner ? own(partner)! + 0.0001 : position.get(id)!;
-      }
+      const partner = (neighbours.get(id) ?? []).find((n) => generationById.get(n) === generation && own(n) !== undefined);
+      // Partners share the mean of both keys so a couple stays adjacent
+      // instead of each half drifting to its own side of the row.
+      if (k === undefined) k = partner ? own(partner)! + 0.0001 : position.get(id)!;
+      else if (partner) k = (k + own(partner)!) / 2;
       key.set(id, k);
     }
     ids.sort((a, b) => key.get(a)! - key.get(b)!);
