@@ -72,7 +72,8 @@ function layoutAncestors(
 function addAncestorSiblings(
   nodes: Map<string, PositionedNode>,
   edges: LayoutEdge[],
-  maps: FamilyMaps
+  maps: FamilyMaps,
+  centerPersonId: string
 ): void {
   const spineSnapshot = Array.from(nodes.values()).filter((n) => n.generation <= 0);
 
@@ -84,14 +85,23 @@ function addAncestorSiblings(
     }
   }
 
+  const rightmostXByGeneration = new Map<number, number>();
+  for (const node of nodes.values()) {
+    rightmostXByGeneration.set(node.generation, Math.max(node.x, rightmostXByGeneration.get(node.generation) ?? -Infinity));
+  }
+  const rightmostX = (generation: number) => rightmostXByGeneration.get(generation)!;
+
   for (const node of spineSnapshot) {
     const parentFamily = maps.familyByChildId.get(node.personId);
     if (!parentFamily) continue;
     const siblingIds = parentFamily.childrenIds.filter((id) => id !== node.personId && !nodes.has(id));
+    // The center's partner sits at the right end of generation 0, so their
+    // siblings go further right, next to them, instead of across the row.
+    const isPartner = node.generation === 0 && node.personId !== centerPersonId;
     siblingIds.forEach((siblingId) => {
-      const leftmost = leftmostXByGeneration.get(node.generation) ?? node.x;
-      const x = leftmost - NODE_SPACING;
-      leftmostXByGeneration.set(node.generation, x);
+      const x = isPartner ? rightmostX(node.generation) + NODE_SPACING : leftmostXByGeneration.get(node.generation)! - NODE_SPACING;
+      if (isPartner) rightmostXByGeneration.set(node.generation, x);
+      else leftmostXByGeneration.set(node.generation, x);
 
       nodes.set(siblingId, { personId: siblingId, x, y: node.y, generation: node.generation });
       for (const parentId of parentFamily.partnerIds) {
@@ -222,7 +232,7 @@ export const classicLayout: LayoutFn = (people, families, centerPersonId) => {
   }
   edges.push(...scratchEdges);
 
-  addAncestorSiblings(nodes, edges, maps);
+  addAncestorSiblings(nodes, edges, maps, centerPersonId);
 
   const offsetX = nodes.get(centerPersonId)?.x ?? 0;
   const recentered = Array.from(nodes.values()).map((n) => ({ ...n, x: n.x - offsetX }));

@@ -52,6 +52,24 @@ describe("classicLayout large trees", () => {
   });
 });
 
+describe("classicLayout partner's siblings", () => {
+  const person = (id: string) => ({ id, firstName: id, lastName: "X" });
+  const fams = [
+    { id: "f1", partnerIds: ["b", "c"], childrenIds: ["andrea", "franco"] },
+    { id: "f2", partnerIds: ["i", "s"], childrenIds: ["anja", "daniela", "martina"] },
+    { id: "f3", partnerIds: ["franco", "martina"], childrenIds: ["kid"] },
+  ];
+
+  it("places the partner's siblings right next to the partner, not on the far side of the center's siblings", () => {
+    const r = classicLayout(["b", "c", "i", "s", "andrea", "franco", "martina", "anja", "daniela", "kid"].map(person), fams, "franco");
+    const x = new Map(r.nodes.map((n) => [n.personId, n.x]));
+    expect(x.get("andrea")!).toBeLessThan(x.get("franco")!);
+    expect(x.get("anja")!).toBeGreaterThan(x.get("martina")!);
+    expect(x.get("daniela")!).toBeGreaterThan(x.get("martina")!);
+    expect(new Set(r.nodes.map((n) => `${n.x},${n.y}`)).size).toBe(r.nodes.length);
+  });
+});
+
 describe("classicLayout", () => {
   const result = classicLayout(people, families, "me");
   const nodeById = new Map(result.nodes.map((n) => [n.personId, n]));
