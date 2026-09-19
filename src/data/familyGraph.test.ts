@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { pickDefaultCenter } from "./familyGraph";
+import { pickDefaultCenter, pickYoungestPerson } from "./familyGraph";
 import { people, families } from "./sampleData";
 
 describe("pickDefaultCenter", () => {
@@ -36,5 +36,29 @@ describe("pickDefaultCenter", () => {
       { id: "f2", partnerIds: ["b"], childrenIds: ["a"] },
     ];
     expect(pickDefaultCenter(cyclePeople, cycleFamilies)).toBeDefined();
+  });
+});
+
+describe("pickYoungestPerson", () => {
+  it("returns the person with the latest birth year", () => {
+    // child1 (Ben, born 2016) is the youngest in the sample data.
+    expect(pickYoungestPerson(people)).toBe("child1");
+  });
+
+  it("ignores people without a known birth date", () => {
+    const mixed = [
+      { id: "a", firstName: "A", lastName: "X", birthDate: "1950-01-01" },
+      { id: "b", firstName: "B", lastName: "X" },
+      { id: "c", firstName: "C", lastName: "X", birthDate: "1999-06-15" },
+    ];
+    expect(pickYoungestPerson(mixed)).toBe("c");
+  });
+
+  it("falls back to the first person when nobody has a birth date", () => {
+    const noDates = [
+      { id: "a", firstName: "A", lastName: "X" },
+      { id: "b", firstName: "B", lastName: "X" },
+    ];
+    expect(pickYoungestPerson(noDates)).toBe("a");
   });
 });

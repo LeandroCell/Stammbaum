@@ -30,36 +30,42 @@ describe("App", () => {
     expect(screen.getByText("Geburtsort: München")).toBeInTheDocument();
   });
 
-  it("re-centers the tree on the selected person", async () => {
+  it("re-centers the tree on the selected person, showing their ancestors instead of their descendants", async () => {
     render(<App />);
     await userEvent.click(screen.getByText("Thomas Berger"));
     await userEvent.click(screen.getByText("Zentrieren"));
-    expect(screen.getByText("Julia Berger")).toBeInTheDocument();
+    // Karl Berger is Thomas's own father — newly visible now that Thomas is
+    // the center. Max Berger was only visible before as Thomas's
+    // descendant, which centering must not show anymore.
+    expect(screen.getByText("Karl Berger")).toBeInTheDocument();
+    expect(screen.queryByText("Max Berger")).not.toBeInTheDocument();
     expect(screen.queryByText("Zentrieren")).not.toBeInTheDocument();
   });
 
-  it("lets you jump back to a person who fell out of view in the radial view", async () => {
+  it("shows the whole tree anchored on the youngest person when 'Alle Personen' is clicked", async () => {
     render(<App />);
     await userEvent.click(screen.getByLabelText("Darstellung wählen"));
     await userEvent.click(screen.getByText(/Runder Stammbaum/));
     expect(screen.queryByText("Julia Berger")).not.toBeInTheDocument();
+    expect(screen.queryByText("Lisa Berger")).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByText("Alle Personen"));
-    await userEvent.click(screen.getByText(/Julia Berger/));
 
-    expect(screen.queryByRole("dialog", { name: "Alle Personen" })).not.toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Julia Berger" })).toBeInTheDocument();
-    expect(screen.getByText("Zentrieren")).toBeInTheDocument();
+    // Ben (child1) is the youngest in the sample data, and centering the
+    // classic view on him reveals every other person too.
+    expect(screen.getByText("Ben Berger")).toBeInTheDocument();
+    expect(screen.getByText("Julia Berger")).toBeInTheDocument();
+    expect(screen.getByText("Lisa Berger")).toBeInTheDocument();
   });
 
-  it("switches to the radial view via the three-dot menu, hiding descendants that the classic view shows", async () => {
+  it("switches to the radial view via the three-dot menu, hiding the sibling that the classic view shows", async () => {
     render(<App />);
-    expect(screen.getByText("Ben Berger")).toBeInTheDocument();
+    expect(screen.getByText("Julia Berger")).toBeInTheDocument();
 
     await userEvent.click(screen.getByLabelText("Darstellung wählen"));
     await userEvent.click(screen.getByText(/Runder Stammbaum/));
 
-    expect(screen.queryByText("Ben Berger")).not.toBeInTheDocument();
+    expect(screen.queryByText("Julia Berger")).not.toBeInTheDocument();
   });
 
   it("adds a new person connected as a child of the center person", async () => {
@@ -73,7 +79,14 @@ describe("App", () => {
     await userEvent.click(screen.getByText("Speichern"));
 
     expect(screen.queryByRole("heading", { name: "Neue Person" })).not.toBeInTheDocument();
-    expect(screen.getByText("Nina Berger")).toBeInTheDocument();
+
+    // Descendants of the centered person (Max) are never shown, so confirm
+    // the link was actually made by checking the underlying data instead.
+    const state = useFamilyData.getState();
+    const nina = state.people.find((p) => p.firstName === "Nina" && p.lastName === "Berger");
+    expect(nina).toBeDefined();
+    const family = state.families.find((f) => f.childrenIds.includes(nina!.id));
+    expect(family?.partnerIds).toContain("me");
   });
 
   it("edits an existing person's details via the info panel", async () => {
